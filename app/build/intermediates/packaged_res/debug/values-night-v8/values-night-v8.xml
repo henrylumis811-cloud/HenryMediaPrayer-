@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#000000</color>
+    <color name="cyan">#4FD8FF</color>
+    <color name="cyan_dim">#734FD8FF</color>
+    <color name="danger">#FF5F56</color>
+    <color name="gold">#FFB454</color>
+    <color name="gold_dim">#73FFB454</color>
+    <color name="ink">#E8EEF2</color>
+    <color name="line">#294FD8FF</color>
+    <color name="muted">#5B6B7C</color>
+    <color name="panel">#0D131B</color>
+    <color name="panel_2">#111A24</color>
+    <color name="void_bg">#080B10</color>
+    <color name="white">#FFFFFF</color>
+</resources>

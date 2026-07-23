@@ -1,0 +1,6 @@
+## This file tells Gradle where your Android SDK lives.
+## Copy this to a file named "local.properties" (same folder) and edit the path.
+## Most on-device/mobile Android IDEs create this file for you automatically,
+## in which case you can ignore/delete this example file.
+
+sdk.dir=/path/to/your/Android/sdk

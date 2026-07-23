@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "com.henrylumis.mediaprayer.app-mergeDebugResources-41:/layout/item_track.xml",
+        "source": "com.henrylumis.mediaprayer.app-main-44:/layout/item_track.xml"
+    },
+    {
+        "merged": "com.henrylumis.mediaprayer.app-mergeDebugResources-41:/layout/activity_main.xml",
+        "source": "com.henrylumis.mediaprayer.app-main-44:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.henrylumis.mediaprayer.app-mergeDebugResources-41:/layout/fragment_player.xml",
+        "source": "com.henrylumis.mediaprayer.app-main-44:/layout/fragment_player.xml"
+    },
+    {
+        "merged": "com.henrylumis.mediaprayer.app-mergeDebugResources-41:/layout/fragment_lyrics.xml",
+        "source": "com.henrylumis.mediaprayer.app-main-44:/layout/fragment_lyrics.xml"
+    },
+    {
+        "merged": "com.henrylumis.mediaprayer.app-mergeDebugResources-41:/layout/fragment_eq.xml",
+        "source": "com.henrylumis.mediaprayer.app-main-44:/layout/fragment_eq.xml"
+    },
+    {
+        "merged": "com.henrylumis.mediaprayer.app-mergeDebugResources-41:/layout/fragment_library.xml",
+        "source": "com.henrylumis.mediaprayer.app-main-44:/layout/fragment_library.xml"
+    }
+]
