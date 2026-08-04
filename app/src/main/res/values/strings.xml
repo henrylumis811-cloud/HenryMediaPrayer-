@@ -1,43 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Henry\'s Media Prayer</string>
-
-    <string name="tab_altar">Altar</string>
-    <string name="tab_library">Library</string>
-    <string name="tab_verses">Verses</string>
-    <string name="tab_signal">Signal</string>
-
-    <string name="awaiting_offering">— AWAITING OFFERING —</string>
-    <string name="unknown_artist">Unknown</string>
-    <string name="add_audio_files">Tap to add audio files</string>
-    <string name="stored_on_device">stored on this device only</string>
-    <string name="reliquary">Reliquary</string>
-    <string name="reliquary_empty">The reliquary is empty.\nAdd audio files to begin the ritual.</string>
-
-    <string name="verses">Verses</string>
-    <string name="no_track">no track</string>
-    <string name="edit">Edit</string>
-    <string name="cancel">Cancel</string>
-    <string name="save">Save</string>
-    <string name="lyrics_hint">[00:12.30] First line of the verse\n[00:16.80] Next line...\n\nor just plain lyrics, one line at a time</string>
-    <string name="lyrics_empty_no_track">Choose an offering from the Library to view or add its verses.</string>
-    <string name="lyrics_empty_track">No verses recorded for this offering yet.\nTap Edit to inscribe lyrics.\n\nPlain text or timed [mm:ss.xx] lines are both understood.</string>
-
-    <string name="signal_chain">Signal Chain</string>
-    <string name="sub_bass">Sub Bass</string>
-    <string name="bass">Bass</string>
-    <string name="mid">Mid</string>
-    <string name="upper_mid">Upper Mid</string>
-    <string name="treble">Treble</string>
-    <string name="hifi_boost">High-Fidelity Gain Boost</string>
-    <string name="reduce_motion">Reduce Motion</string>
-    <string name="sample_rate">SAMPLE RATE</string>
-    <string name="channels">CHANNELS</string>
-    <string name="format">FORMAT</string>
-    <string name="queue_position">QUEUE POSITION</string>
-
-    <string name="mandala">MANDALA</string>
-    <string name="waveform">WAVEFORM</string>
-    <string name="spectrum">SPECTRUM</string>
-
-    <string name="notif_channel_name">Playback</string>
 </resources>

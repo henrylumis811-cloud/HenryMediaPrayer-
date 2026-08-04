@@ -1,17 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Light phase palette (mirrors body.light-mode in the original web app) -->
-    <color name="void_bg">#E6EEF5</color>
-    <color name="panel">#FFFFFF</color>
-    <color name="panel_2">#F4F7F9</color>
-    <color name="line">#40007ACC</color>
-    <color name="cyan">#007ACC</color>
-    <color name="cyan_dim">#99007ACC</color>
-    <color name="gold">#D97706</color>
-    <color name="gold_dim">#80D97706</color>
-    <color name="ink">#1A222D</color>
-    <color name="muted">#5B6B7C</color>
-    <color name="danger">#FF5F56</color>
-    <color name="white">#FFFFFF</color>
-    <color name="black">#000000</color>
+    <!-- Legendary tech palette - light / chrome-glass HUD mode -->
+    <color name="bg_base">#EDF2F7</color>
+    <color name="bg_elevated">#FFFFFF</color>
+    <color name="accent_cyan">#0091B3</color>
+    <color name="accent_violet">#5B3DE0</color>
+    <color name="accent_pink">#D6006E</color>
+    <color name="text_primary">#101720</color>
+    <color name="text_secondary">#48566A</color>
+    <color name="divider">#D4DEE8</color>
+    <color name="surface_card">#FFFFFF</color>
 </resources>

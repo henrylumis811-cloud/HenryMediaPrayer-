@@ -1,61 +1,56 @@
-# Henry's Media Prayer — Android app
+# Henry's Media Prayer v2
 
-A native Android rebuild of `Henry.html`: four tabs (Altar / Library / Verses /
-Signal), a canvas "mandala" visualizer, a 5-band equalizer + bass boost, timed
-lyrics, shuffle/repeat/speed/volume, and a dark/light theme toggle.
+Rebuilt to fix the 6-second crash, fix music auto-scan, and add full Android 14 support.
 
-## How playback quality is handled
-Audio is played with **ExoPlayer (Media3)**, which decodes each file to PCM at
-*that file's own* sample rate and channel layout and hands it straight to
-`AudioTrack` — there's no forced downsampling or re-encoding. The EQ and
-bass-boost are implemented with the platform's `android.media.audiofx`
-`Equalizer`/`BassBoost`, attached to the player's audio session, so they colour
-the signal without touching quality elsewhere in the chain.
+## What was actually wrong (most likely) and how it's fixed
 
-## Project layout
-```
-HenrysMediaPrayer/
-  settings.gradle, build.gradle, gradle.properties   – project-level Gradle
-  gradle/wrapper/gradle-wrapper.properties           – Gradle 8.4
-  app/build.gradle                                   – AGP 7.2.2, Kotlin 1.7.20,
-                                                        compileSdk/targetSdk 33, minSdk 24
-                                                        (chosen to match Android Code Studio's
-                                                        bundled Gradle 7.4.2 — see note below)
-  app/src/main/AndroidManifest.xml
-  app/src/main/java/com/henrylumis/mediaprayer/
-    MediaPrayerApp.kt        – theme default + notification channel
-    data/                    – Track model + plain SQLite repository (no Room)
-    player/                  – PlayerManager (ExoPlayer + EQ/BassBoost/Visualizer),
-                               PlaybackService (MediaSessionService for lock screen/BG)
-    ui/                      – MainActivity + 4 fragments + AltarView + adapter
-  app/src/main/res/          – layouts, drawables, colors (day + values-night), strings
-```
+**1. Crash ~6 seconds into playback**
+`android.media.audiofx.Visualizer` throws if you construct it before ExoPlayer's
+audio session id is valid (it becomes valid a moment *after* playback starts,
+not at song load — matches a crash a few seconds in). `VisualizerView.kt` now:
+- waits for `Player.STATE_READY` and a non-zero `audioSessionId` before attaching
+- wraps every visualizer call in try/catch
+- falls back to a fake animated waveform instead of crashing if the device's
+  audio stack refuses a capture session (common on budget/OEM chipsets)
+- also added a global `Player.Listener.onPlayerError` handler in `PlaybackService`
+  that skips a broken track instead of letting playback errors kill the app
 
-## Opening the project
-1. **Android Studio (recommended):** File → Open → select the `HenrysMediaPrayer`
-   folder. Let it sync Gradle; it will download the wrapper distribution
-   itself the first time (needs network access once).
-2. **A mobile/on-device Android IDE (e.g. Android Code Studio):** open the
-   same folder as a Gradle project. **This project is currently pinned to
-   AGP 7.2.2 / Kotlin 1.7.20 / compileSdk 33, specifically because Android
-   Code Studio's bundled Gradle was 7.4.2** (AGP 8.x needs Gradle 8.0+, which
-   is what caused the original "Minimum supported Gradle version is 8.0"
-   failure). If your copy of ACS ships a newer bundled Gradle, you can raise
-   these versions again for access to newer SDK features — just keep
-   AGP/Gradle/compileSdk moving together, not one at a time.
-   The dependency set is intentionally small (no Room/KSP, no Compose, no
-   Hilt) specifically to reduce the chance of a mobile build rejecting it.
+**2. Auto-scan not working**
+Old code likely relied on `READ_EXTERNAL_STORAGE`, which Android 13+ ignores for
+media apps. `MusicScanner.kt` now queries `MediaStore` directly (scoped-storage
+safe) and `MainActivity` requests `READ_MEDIA_AUDIO` (13+) or
+`READ_EXTERNAL_STORAGE` (below 13) at runtime, plus `POST_NOTIFICATIONS`.
 
-## Permissions
-The app asks for `POST_NOTIFICATIONS` (Android 13+) so the playback
-notification can show, and uses the system document picker (Storage Access
-Framework) to add audio files — no broad storage permission is required on
-modern Android versions.
+**3. Android 14 compatibility**
+- `compileSdk` / `targetSdk` bumped to 34
+- Playback rebuilt on `MediaSessionService` (Media3 1.4.1), which correctly
+  declares `foregroundServiceType="mediaPlayback"` and manages the notification,
+  lock-screen controls, and foreground lifecycle — Android 14 kills services that
+  get this wrong
+- `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permission added (required as of API 34)
+- Runtime `POST_NOTIFICATIONS` request (required as of API 33)
 
-## Known simplifications vs. the original web app
-- The equalizer's dB range is mapped onto whatever range the device's
-  `Equalizer` effect reports (commonly ±15 dB); most phones support this fine.
-- The FFT-driven visualizer bands are an approximation of the original Web
-  Audio analyser bins, redrawn with `Canvas` instead of `<canvas>`.
-- The launcher icon is a simple vector placeholder — swap
-  `res/drawable/ic_launcher.xml` for real launcher art whenever you like.
+## Important: this needs newer build tooling than your phone's ACS setup
+
+Your on-device constraints (AGP 7.2.2 / Gradle 7.4.2 / compileSdk 33) **cannot
+target Android 14** — Google requires AGP 8.x and Gradle 8.x for compileSdk 34.
+This project is set up for **GitHub Actions only**:
+- AGP 8.5.2, Gradle 8.7, Kotlin 1.9.24, JDK 17
+- `.github/workflows/android-build.yml` builds a debug APK on every push to
+  `main` and uploads it as a workflow artifact — download it from the Actions
+  tab after pushing.
+
+## Four tabs, as before
+- **Altar** — now playing, visualizer, transport controls, progress
+- **Library** — auto-scanned song list, pull-to-refresh
+- **Verses** — lyrics screen (placeholder wired for LRC lyrics next)
+- **Signal** — dark/light HUD toggle, sleep timer
+
+## Max quality playback
+No re-encoding or downsampling anywhere — ExoPlayer plays each file at its
+native source quality by default.
+
+## Not yet wired (flag if you want these next)
+- Synced LRC lyrics in Verses
+- Album art in the Library list and Altar screen
+- Equalizer

@@ -1,70 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/swipe_refresh"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_margin="4dp"
-    android:background="@drawable/bg_panel"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_panel_title_border"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="10dp">
+        android:layout_height="match_parent">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/song_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingVertical="8dp" />
 
         <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.1"
-            android:text="@string/reliquary"
-            android:textAllCaps="true"
-            android:textColor="@color/cyan_dim"
-            android:textSize="10sp" />
-
-        <TextView
-            android:id="@+id/trackCountText"
+            android:id="@+id/empty_state"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:text="0 tracks"
-            android:textColor="@color/muted"
-            android:textSize="10sp" />
-    </LinearLayout>
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:textColor="@color/text_secondary"
+            android:visibility="gone"
+            android:text="No music found on this device.\nAdd some songs, then pull down to rescan." />
 
-    <TextView
-        android:id="@+id/dropzone"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="10dp"
-        android:background="@drawable/bg_dropzone"
-        android:gravity="center"
-        android:padding="14dp"
-        android:text="@string/add_audio_files"
-        android:textColor="@color/muted"
-        android:textSize="11sp" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/trackRecyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"
-        android:paddingHorizontal="6dp"
-        android:paddingBottom="10dp" />
-
-    <TextView
-        android:id="@+id/emptyState"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:padding="28dp"
-        android:text="@string/reliquary_empty"
-        android:textColor="@color/muted"
-        android:textSize="11sp"
-        android:visibility="gone" />
-
-</LinearLayout>
+    </FrameLayout>
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

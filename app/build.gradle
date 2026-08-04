@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace 'com.henrylumis.mediaprayer'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.henrylumis.mediaprayer"
         minSdk 24
-        targetSdk 33
-        versionCode 1
-        versionName "1.0"
+        targetSdk 34
+        versionCode 2
+        versionName "2.0"
     }
 
     buildTypes {
@@ -20,49 +20,37 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
-        debug {
-            minifyEnabled false
-        }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
-
     kotlinOptions {
-        jvmTarget = '11'
+        jvmTarget = '17'
     }
 
     buildFeatures {
         viewBinding true
     }
-
-    // Avoids duplicate META-INF resource collisions that Media3 / AndroidX
-    // dependencies sometimes bring in, which is a common cause of a build
-    // being rejected on constrained/mobile build environments.
-    packagingOptions {
-        excludes += ['META-INF/AL2.0', 'META-INF/LGPL2.1', 'META-INF/DEPENDENCIES']
-    }
 }
 
 dependencies {
-    // Versions pinned to what's compatible with compileSdk 33 / AGP 7.2.x,
-    // since that's what Android Code Studio's bundled Gradle (7.4.2) supports.
-    implementation 'androidx.core:core-ktx:1.10.1'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.fragment:fragment-ktx:1.5.7'
-    implementation 'androidx.activity:activity-ktx:1.7.2'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2'
-    implementation 'androidx.recyclerview:recyclerview:1.3.1'
+    implementation 'androidx.viewpager2:viewpager2:1.1.0'
+    implementation 'androidx.fragment:fragment-ktx:1.8.2'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.4'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.activity:activity-ktx:1.9.1'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
 
-    // Media3 / ExoPlayer: plays each file's own bitrate & sample rate through
-    // AudioTrack without any lossy re-encoding, i.e. "best quality" playback.
-    implementation 'androidx.media3:media3-exoplayer:1.1.1'
-    implementation 'androidx.media3:media3-session:1.1.1'
-    implementation 'androidx.media3:media3-common:1.1.1'
+    // Media3 - handles playback, MediaSession, and the system notification together
+    implementation 'androidx.media3:media3-exoplayer:1.4.1'
+    implementation 'androidx.media3:media3-session:1.4.1'
+    implementation 'androidx.media3:media3-common:1.4.1'
 
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
 }
