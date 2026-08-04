@@ -2,7 +2,7 @@
 <!--
   Legendary-tech HUD backdrop: radial glow core + subtle circuit-style
   rings, rendered as layered vector/gradient drawables so it looks the
-  same structurally in light and dark mode -- only the colors (pulled
+  same structurally in light and dark mode, only the colors (pulled
   from colors.xml / values-night colors.xml) change.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
