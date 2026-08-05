@@ -82,9 +82,19 @@ class MainActivity : AppCompatActivity() {
     fun applyBackground() {
         val uri = Prefs.getBackgroundUri(this)
         if (uri != null) {
-            binding.bgPhoto.setImageURI(uri)
-            binding.bgPhoto.alpha = Prefs.getBackgroundOpacity(this) / 100f
-            binding.bgPhoto.visibility = android.view.View.VISIBLE
+            try {
+                binding.bgPhoto.setImageURI(uri)
+                binding.bgPhoto.alpha = Prefs.getBackgroundOpacity(this) / 100f
+                binding.bgPhoto.visibility = android.view.View.VISIBLE
+            } catch (e: Exception) {
+                // Access to a previously-picked photo can be revoked by the
+                // system after the app process is fully killed (varies by
+                // OEM/Android version). Rather than crash every launch after
+                // that happens, just fall back to the default HUD background.
+                Prefs.setBackgroundUri(this, null)
+                binding.bgPhoto.setImageDrawable(null)
+                binding.bgPhoto.visibility = android.view.View.GONE
+            }
         } else {
             binding.bgPhoto.visibility = android.view.View.GONE
         }
