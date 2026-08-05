@@ -4,10 +4,15 @@
         <item name="colorPrimary">@color/accent_cyan</item>
         <item name="colorPrimaryDark">@color/bg_base</item>
         <item name="colorAccent">@color/accent_violet</item>
-        <item name="android:windowBackground">@drawable/bg_legendary</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:statusBarColor">@color/bg_base</item>
         <item name="android:navigationBarColor">@color/bg_base</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
+    <style name="CircleImageStyle">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
     </style>
 </resources>

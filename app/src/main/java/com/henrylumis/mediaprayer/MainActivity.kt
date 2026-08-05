@@ -2,8 +2,10 @@ package com.henrylumis.mediaprayer
 
 import android.Manifest
 import android.content.ComponentName
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
@@ -17,6 +19,7 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.ActivityMainBinding
 import com.henrylumis.mediaprayer.ui.PagerAdapter
+import com.henrylumis.mediaprayer.util.Prefs
 
 @UnstableApi
 class MainActivity : AppCompatActivity() {
@@ -34,6 +37,15 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> /* LibraryFragment re-scans itself when it becomes visible / on refresh */ }
 
+    private val pickBackgroundPhoto = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            Prefs.setBackgroundUri(this, uri)
+            applyBackground()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -46,8 +58,36 @@ class MainActivity : AppCompatActivity() {
             tab.text = tabTitles[position]
         }.attach()
 
+        applyBackground()
         requestNeededPermissions()
         connectToPlaybackService()
+    }
+
+    fun pickBackground() {
+        pickBackgroundPhoto.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
+
+    fun clearBackground() {
+        Prefs.setBackgroundUri(this, null)
+        applyBackground()
+    }
+
+    fun setBackgroundOpacity(percent: Int) {
+        Prefs.setBackgroundOpacity(this, percent)
+        binding.bgPhoto.alpha = percent / 100f
+    }
+
+    fun applyBackground() {
+        val uri = Prefs.getBackgroundUri(this)
+        if (uri != null) {
+            binding.bgPhoto.setImageURI(uri)
+            binding.bgPhoto.alpha = Prefs.getBackgroundOpacity(this) / 100f
+            binding.bgPhoto.visibility = android.view.View.VISIBLE
+        } else {
+            binding.bgPhoto.visibility = android.view.View.GONE
+        }
     }
 
     private fun requestNeededPermissions() {

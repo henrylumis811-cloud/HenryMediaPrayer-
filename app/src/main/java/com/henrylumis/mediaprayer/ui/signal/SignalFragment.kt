@@ -28,6 +28,7 @@ class SignalFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val ctx = requireContext()
+        val activity = activity as? MainActivity
 
         binding.themeSwitch.isChecked = Prefs.isDark(ctx)
         binding.themeSwitch.setOnCheckedChangeListener { _, checked ->
@@ -37,6 +38,18 @@ class SignalFragment : Fragment() {
             )
             requireActivity().recreate()
         }
+
+        binding.btnChoosePhoto.setOnClickListener { activity?.pickBackground() }
+        binding.btnClearPhoto.setOnClickListener { activity?.clearBackground() }
+
+        binding.opacitySlider.progress = Prefs.getBackgroundOpacity(ctx)
+        binding.opacitySlider.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) activity?.setBackgroundOpacity(progress)
+            }
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
 
         val timerOptions = listOf(0, 15, 30, 45, 60)
         binding.sleepTimerGroup.removeAllViews()
