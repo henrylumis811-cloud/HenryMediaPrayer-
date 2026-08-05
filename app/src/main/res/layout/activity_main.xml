@@ -25,11 +25,25 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingTop="18dp"
+            android:paddingBottom="6dp"
+            android:text="Henry's Media Prayer"
+            android:textColor="@color/accent_cyan"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.04" />
+
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@android:color/transparent"
+            app:tabMode="scrollable"
+            app:tabGravity="start"
             app:tabIndicatorColor="@color/accent_cyan"
             app:tabSelectedTextColor="@color/accent_cyan"
             app:tabTextColor="@color/text_secondary" />

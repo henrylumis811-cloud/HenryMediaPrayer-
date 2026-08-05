@@ -93,6 +93,7 @@ class AltarFragment : Fragment() {
             if (isPlaying) android.R.drawable.ic_media_pause
             else android.R.drawable.ic_media_play
         )
+        binding.visualizer.setPlaying(isPlaying)
     }
 
     private fun updateNowPlaying() {
@@ -109,7 +110,7 @@ class AltarFragment : Fragment() {
         lastArtMediaId = mediaId
 
         if (item == null || item.localConfiguration?.uri == null) {
-            binding.albumArt.setImageResource(R.drawable.ic_launcher_foreground)
+            binding.albumArt.setImageResource(R.drawable.ic_album_placeholder)
             return
         }
         val uri: Uri = item.localConfiguration!!.uri
@@ -129,7 +130,7 @@ class AltarFragment : Fragment() {
             if (bitmap != null) {
                 binding.albumArt.setImageBitmap(bitmap)
             } else {
-                binding.albumArt.setImageResource(R.drawable.ic_launcher_foreground)
+                binding.albumArt.setImageResource(R.drawable.ic_album_placeholder)
             }
         }
     }

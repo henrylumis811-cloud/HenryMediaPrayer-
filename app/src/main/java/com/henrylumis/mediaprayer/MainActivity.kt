@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.viewPager.adapter = PagerAdapter(this)
         binding.viewPager.offscreenPageLimit = 3
-        val tabTitles = listOf("Altar", "Library", "Verses", "Signal")
+        val tabTitles = listOf("Altar", "Library", "Queue", "Verses", "Signal")
         TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
             tab.text = tabTitles[position]
         }.attach()
@@ -136,6 +136,30 @@ class MainActivity : AppCompatActivity() {
 
     fun skipNext() { mediaController?.seekToNextMediaItem() }
     fun skipPrevious() { mediaController?.seekToPreviousMediaItem() }
+
+    // --- Queue management ---
+
+    fun getQueue(): List<MediaItem> {
+        val controller = mediaController ?: return emptyList()
+        return (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it) }
+    }
+
+    fun currentQueueIndex(): Int = mediaController?.currentMediaItemIndex ?: -1
+
+    fun moveQueueItem(from: Int, to: Int) {
+        mediaController?.moveMediaItem(from, to)
+    }
+
+    fun removeQueueItem(index: Int) {
+        mediaController?.removeMediaItem(index)
+    }
+
+    fun playQueueIndex(index: Int) {
+        mediaController?.apply {
+            seekTo(index, 0L)
+            play()
+        }
+    }
 
     fun startSleepTimer(minutes: Int) {
         PlaybackService.instance?.sleepTimer?.start(minutes)

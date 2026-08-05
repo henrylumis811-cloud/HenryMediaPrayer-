@@ -19,7 +19,7 @@
             android:layout_gravity="center"
             android:scaleType="centerCrop"
             android:background="@drawable/bg_card"
-            android:src="@drawable/ic_launcher_foreground"
+            android:src="@drawable/ic_album_placeholder"
             app:shapeAppearanceOverlay="@style/CircleImageStyle" />
 
         <com.henrylumis.mediaprayer.ui.VisualizerView
