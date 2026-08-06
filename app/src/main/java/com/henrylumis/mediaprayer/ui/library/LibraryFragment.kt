@@ -31,7 +31,8 @@ class LibraryFragment : Fragment() {
         TITLE_ASC("Title (A-Z)"),
         TITLE_DESC("Title (Z-A)"),
         ARTIST("Artist"),
-        DURATION("Duration")
+        DURATION("Duration"),
+        DATE_ADDED("Date Added (Newest)")
     }
 
     override fun onCreateView(
@@ -106,6 +107,7 @@ class LibraryFragment : Fragment() {
             SortMode.TITLE_DESC -> result.sortedByDescending { it.title.lowercase() }
             SortMode.ARTIST -> result.sortedBy { it.artist.lowercase() }
             SortMode.DURATION -> result.sortedBy { it.durationMs }
+            SortMode.DATE_ADDED -> result.sortedByDescending { it.dateAdded }
         }
         adapter.submitList(result)
         binding.emptyState.visibility = if (result.isEmpty()) View.VISIBLE else View.GONE

@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -16,10 +17,12 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.common.util.concurrent.MoreExecutors
+import com.henrylumis.mediaprayer.data.MusicScanner
 import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.ActivityMainBinding
 import com.henrylumis.mediaprayer.ui.PagerAdapter
 import com.henrylumis.mediaprayer.util.Prefs
+import kotlinx.coroutines.launch
 
 @UnstableApi
 class MainActivity : AppCompatActivity() {
@@ -122,6 +125,9 @@ class MainActivity : AppCompatActivity() {
     fun playQueue(songs: List<Song>, startIndex: Int) {
         val controller = mediaController ?: return
         val items = songs.map { song ->
+            val extras = android.os.Bundle().apply {
+                song.dataPath?.let { putString("data_path", it) }
+            }
             MediaItem.Builder()
                 .setUri(song.uriString)
                 .setMediaId(song.id.toString())
@@ -130,6 +136,7 @@ class MainActivity : AppCompatActivity() {
                         .setTitle(song.title)
                         .setArtist(song.artist)
                         .setAlbumTitle(song.album)
+                        .setExtras(extras)
                         .build()
                 )
                 .build()
@@ -141,6 +148,15 @@ class MainActivity : AppCompatActivity() {
 
     fun togglePlayPause() {
         val controller = mediaController ?: return
+        if (controller.mediaItemCount == 0) {
+            // Nothing loaded yet (e.g. fresh app launch) -- pressing Play should
+            // just start the library playing rather than silently doing nothing.
+            lifecycleScope.launch {
+                val songs = MusicScanner.scan(this@MainActivity)
+                if (songs.isNotEmpty()) playQueue(songs, 0)
+            }
+            return
+        }
         if (controller.isPlaying) controller.pause() else controller.play()
     }
 

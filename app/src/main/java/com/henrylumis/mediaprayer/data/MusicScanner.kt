@@ -24,7 +24,9 @@ object MusicScanner {
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.ALBUM_ID
+            MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.DATE_ADDED,
+            MediaStore.Audio.Media.DATA
         )
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} > 0"
@@ -41,6 +43,8 @@ object MusicScanner {
             val albumCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val albumIdCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val dateAddedCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+            val dataCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
 
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
@@ -53,7 +57,9 @@ object MusicScanner {
                         album = c.getString(albumCol) ?: "Unknown Album",
                         durationMs = c.getLong(durationCol),
                         uriString = contentUri.toString(),
-                        albumId = c.getLong(albumIdCol)
+                        albumId = c.getLong(albumIdCol),
+                        dateAdded = c.getLong(dateAddedCol),
+                        dataPath = c.getString(dataCol)
                     )
                 )
             }

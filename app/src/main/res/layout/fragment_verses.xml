@@ -1,31 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
         <TextView
-            android:id="@+id/verses_title"
+            android:id="@+id/verses_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:padding="16dp"
             android:textColor="@color/text_primary"
-            android:textSize="20sp"
+            android:textSize="16sp"
             android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:text="No song playing" />
 
-        <TextView
-            android:id="@+id/verses_body"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/lyrics_list"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:lineSpacingExtra="6dp"
-            android:textColor="@color/text_secondary"
-            android:textSize="15sp" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingVertical="80dp" />
 
     </LinearLayout>
-</ScrollView>
+
+    <TextView
+        android:id="@+id/verses_empty_state"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:padding="24dp"
+        android:textColor="@color/text_secondary"
+        android:visibility="gone"
+        android:text="No synced lyrics found for this song.\n\nDrop a matching .lrc file next to the audio file (same name, .lrc extension) and it'll show up here automatically." />
+
+</FrameLayout>

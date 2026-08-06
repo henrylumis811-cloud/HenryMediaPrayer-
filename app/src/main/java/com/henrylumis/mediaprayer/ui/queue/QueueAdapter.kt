@@ -2,8 +2,10 @@ package com.henrylumis.mediaprayer.ui.queue
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.recyclerview.widget.RecyclerView
+import com.henrylumis.mediaprayer.R
 import com.henrylumis.mediaprayer.databinding.ItemQueueSongBinding
 
 class QueueAdapter(
@@ -39,14 +41,15 @@ class QueueAdapter(
 
     override fun onBindViewHolder(holder: QueueViewHolder, position: Int) {
         val item = items[position]
+        val context = holder.binding.root.context
         holder.binding.queueSongTitle.text = item.mediaMetadata.title?.toString() ?: "Unknown"
         holder.binding.queueSongArtist.text = item.mediaMetadata.artist?.toString() ?: "Unknown Artist"
         holder.binding.root.alpha = if (position == currentIndex) 1f else 0.75f
         holder.binding.queueSongTitle.setTextColor(
-            if (position == currentIndex)
-                android.graphics.Color.parseColor("#00E5FF")
-            else
-                android.graphics.Color.parseColor("#F2F6FA")
+            ContextCompat.getColor(
+                context,
+                if (position == currentIndex) R.color.accent_cyan else R.color.text_primary
+            )
         )
         holder.binding.root.setOnClickListener { onClick(holder.bindingAdapterPosition) }
         holder.binding.btnRemove.setOnClickListener { onRemove(holder.bindingAdapterPosition) }
