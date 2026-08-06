@@ -15,6 +15,7 @@ import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.data.MusicScanner
 import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.FragmentLibraryBinding
+import com.henrylumis.mediaprayer.util.Prefs
 import kotlinx.coroutines.launch
 
 class LibraryFragment : Fragment() {
@@ -44,6 +45,10 @@ class LibraryFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        sortMode = Prefs.getSortMode(requireContext())
+            ?.let { saved -> SortMode.values().find { it.name == saved } }
+            ?: SortMode.TITLE_ASC
 
         adapter = SongAdapter { song, _ ->
             // Play starting from this song's position within the currently
@@ -78,6 +83,7 @@ class LibraryFragment : Fragment() {
         }
         popup.setOnMenuItemClickListener { item ->
             sortMode = SortMode.values()[item.itemId]
+            Prefs.setSortMode(requireContext(), sortMode.name)
             applyFilterAndSort()
             true
         }
