@@ -229,6 +229,16 @@
                     android:max="100"
                     android:progressDrawable="@drawable/seekbar_progress"
                     android:thumb="@drawable/seekbar_thumb" />
+
+                <TextView
+                    android:id="@+id/volume_percent"
+                    android:layout_width="44dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:gravity="end"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:text="0%" />
             </LinearLayout>
 
             <LinearLayout

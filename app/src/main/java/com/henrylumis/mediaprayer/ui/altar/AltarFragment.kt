@@ -1,5 +1,9 @@
 package com.henrylumis.mediaprayer.ui.altar
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.media.MediaMetadataRetriever
@@ -34,6 +38,8 @@ class AltarFragment : Fragment() {
     private var visualizerAttached = false
     private var lastArtMediaId: String? = null
     private var userIsDraggingSeek = false
+    private lateinit var audioManager: AudioManager
+    private var volumeReceiver: BroadcastReceiver? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -74,20 +80,69 @@ class AltarFragment : Fragment() {
     }
 
     private fun setupVolumeSlider() {
-        val audioManager = requireContext().getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager
-        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        binding.volumeSlider.max = max
-        binding.volumeSlider.progress = current
+        audioManager = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        refreshVolumeDisplay()
         binding.volumeSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0)
+                    updateVolumePercentText(progress)
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+    }
+
+    private fun refreshVolumeDisplay() {
+        if (_binding == null || !::audioManager.isInitialized) return
+        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        binding.volumeSlider.max = max
+        binding.volumeSlider.progress = current
+        updateVolumePercentText(current, max)
+    }
+
+    private fun updateVolumePercentText(current: Int, max: Int = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)) {
+        if (_binding == null) return
+        val percent = if (max > 0) (current * 100) / max else 0
+        binding.volumePercent.text = "$percent%"
+    }
+
+    /** Picks up volume changes made via the phone's hardware volume buttons
+     *  (or any other app) so the slider and percentage stay accurate live. */
+    private fun registerVolumeReceiver() {
+        if (volumeReceiver != null) return
+        volumeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                refreshVolumeDisplay()
+            }
+        }
+        try {
+            requireContext().registerReceiver(
+                volumeReceiver,
+                IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+            )
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun unregisterVolumeReceiver() {
+        volumeReceiver?.let {
+            try { requireContext().unregisterReceiver(it) } catch (_: Exception) {}
+        }
+        volumeReceiver = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        registerVolumeReceiver()
+        refreshVolumeDisplay()
+    }
+
+    override fun onPause() {
+        unregisterVolumeReceiver()
+        super.onPause()
     }
 
     private fun setupShuffleRepeat() {

@@ -8,17 +8,34 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/verses_header"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:textColor="@color/text_primary"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="No song playing" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="16dp">
+
+            <TextView
+                android:id="@+id/verses_header"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="No song playing" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_paste_lyrics"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Paste Lyrics"
+                android:textSize="12sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/lyrics_list"
@@ -39,6 +56,6 @@
         android:padding="24dp"
         android:textColor="@color/text_secondary"
         android:visibility="gone"
-        android:text="No synced lyrics found for this song.\n\nDrop a matching .lrc file next to the audio file (same name, .lrc extension) and it'll show up here automatically." />
+        android:text="No lyrics found for this song yet.\n\nDrop a matching .lrc file next to the audio file for synced lyrics, or tap \"Paste Lyrics\" above to add the words yourself." />
 
 </FrameLayout>
