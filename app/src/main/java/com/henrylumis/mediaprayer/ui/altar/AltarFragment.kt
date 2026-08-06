@@ -1,6 +1,7 @@
 package com.henrylumis.mediaprayer.ui.altar
 
 import android.graphics.BitmapFactory
+import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
@@ -9,6 +10,8 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.SeekBar
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
@@ -30,6 +33,7 @@ class AltarFragment : Fragment() {
     private var listenerAttached = false
     private var visualizerAttached = false
     private var lastArtMediaId: String? = null
+    private var userIsDraggingSeek = false
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -46,12 +50,75 @@ class AltarFragment : Fragment() {
         binding.btnNext.setOnClickListener { activity.skipNext() }
         binding.btnPrev.setOnClickListener { activity.skipPrevious() }
 
-        // The service/controller connects asynchronously -- both the visualizer
-        // AND the playback listener need to retry until the player exists,
-        // otherwise this screen silently never updates if it loads first.
+        binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(seekBar: SeekBar?) { userIsDraggingSeek = true }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                userIsDraggingSeek = false
+                activity.player?.seekTo(seekBar?.progress?.toLong() ?: 0L)
+            }
+        })
+
+        setupVolumeSlider()
+        setupShuffleRepeat()
+
+        binding.btnAddPlaylist.setOnClickListener {
+            // Custom named playlists aren't built yet -- flag it honestly rather
+            // than silently doing nothing.
+            Toast.makeText(requireContext(), "Playlists are coming soon", Toast.LENGTH_SHORT).show()
+        }
+
         attachVisualizerWhenReady()
         attachPlayerListenerWhenReady()
         startProgressUpdates()
+    }
+
+    private fun setupVolumeSlider() {
+        val audioManager = requireContext().getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager
+        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        binding.volumeSlider.max = max
+        binding.volumeSlider.progress = current
+        binding.volumeSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0)
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+    }
+
+    private fun setupShuffleRepeat() {
+        val activity = activity as? MainActivity ?: return
+        updateShuffleIcon()
+        updateRepeatIcon()
+
+        binding.btnShuffle.setOnClickListener {
+            val player = activity.player ?: return@setOnClickListener
+            player.shuffleModeEnabled = !player.shuffleModeEnabled
+            updateShuffleIcon()
+        }
+        binding.btnRepeat.setOnClickListener {
+            val player = activity.player ?: return@setOnClickListener
+            player.repeatMode = when (player.repeatMode) {
+                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
+            }
+            updateRepeatIcon()
+        }
+    }
+
+    private fun updateShuffleIcon() {
+        val player = (activity as? MainActivity)?.player ?: return
+        binding.btnShuffle.alpha = if (player.shuffleModeEnabled) 1f else 0.5f
+    }
+
+    private fun updateRepeatIcon() {
+        val player = (activity as? MainActivity)?.player ?: return
+        binding.btnRepeat.alpha = if (player.repeatMode == Player.REPEAT_MODE_OFF) 0.5f else 1f
     }
 
     private fun attachVisualizerWhenReady() {
@@ -72,14 +139,14 @@ class AltarFragment : Fragment() {
         if (player != null) {
             player.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    updatePlayPauseIcon(isPlaying)
+                    updatePlayPauseButton(isPlaying)
                 }
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     updateNowPlaying()
                 }
             })
             listenerAttached = true
-            updatePlayPauseIcon(player.isPlaying)
+            updatePlayPauseButton(player.isPlaying)
             updateNowPlaying()
             return
         }
@@ -87,11 +154,11 @@ class AltarFragment : Fragment() {
         handler.postDelayed({ if (!listenerAttached) attachPlayerListenerWhenReady() }, 300)
     }
 
-    private fun updatePlayPauseIcon(isPlaying: Boolean) {
+    private fun updatePlayPauseButton(isPlaying: Boolean) {
         if (_binding == null) return
-        binding.btnPlayPause.setImageResource(
-            if (isPlaying) android.R.drawable.ic_media_pause
-            else android.R.drawable.ic_media_play
+        binding.btnPlayPause.text = if (isPlaying) "PAUSE" else "PLAY"
+        binding.btnPlayPause.setIconResource(
+            if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         )
         binding.visualizer.setPlaying(isPlaying)
     }
@@ -111,6 +178,7 @@ class AltarFragment : Fragment() {
 
         if (item == null || item.localConfiguration?.uri == null) {
             binding.albumArt.setImageResource(R.drawable.ic_album_placeholder)
+            binding.backdrop.setImageResource(R.drawable.ic_album_placeholder)
             return
         }
         val uri: Uri = item.localConfiguration!!.uri
@@ -129,8 +197,10 @@ class AltarFragment : Fragment() {
             if (_binding == null) return@launch
             if (bitmap != null) {
                 binding.albumArt.setImageBitmap(bitmap)
+                binding.backdrop.setImageBitmap(bitmap)
             } else {
                 binding.albumArt.setImageResource(R.drawable.ic_album_placeholder)
+                binding.backdrop.setImageResource(R.drawable.ic_album_placeholder)
             }
         }
     }
@@ -144,13 +214,10 @@ class AltarFragment : Fragment() {
                         val pos = player.currentPosition.coerceAtLeast(0)
                         val dur = player.duration.coerceAtLeast(1)
                         binding.seekBar.max = dur.toInt()
-                        binding.seekBar.progress = pos.toInt()
-                        binding.timeElapsed.text = format(pos)
-                        binding.timeTotal.text = format(dur)
+                        if (!userIsDraggingSeek) binding.seekBar.progress = pos.toInt()
+                        binding.timeReadout.text = "${format(pos)} / ${format(dur)}"
                     }
-                    // Cheap safety net: keeps the UI honest even if a listener
-                    // callback was ever missed for any reason.
-                    updatePlayPauseIcon(player.isPlaying)
+                    updatePlayPauseButton(player.isPlaying)
                 }
                 handler.postDelayed(this, 500)
             }

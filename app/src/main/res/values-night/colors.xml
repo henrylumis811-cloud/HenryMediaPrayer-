@@ -10,4 +10,15 @@
     <color name="text_secondary">#8FA3B3</color>
     <color name="divider">#1E2833</color>
     <color name="surface_card">#101720</color>
+
+    <!-- Chrome / glass Altar redesign -->
+    <color name="chrome_light">#3A3F45</color>
+    <color name="chrome_mid">#24282D</color>
+    <color name="chrome_dark">#121417</color>
+    <color name="glass_panel">#66000000</color>
+    <color name="glass_border">#55FFFFFF</color>
+    <color name="accent_purple">#8A5CF5</color>
+    <color name="accent_purple_dark">#5A2FD9</color>
+    <color name="accent_gold">#F2B84B</color>
+    <color name="screw_gray">#6E767E</color>
 </resources>
