@@ -15,6 +15,7 @@ import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.data.MusicScanner
 import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.FragmentLibraryBinding
+import com.henrylumis.mediaprayer.util.PlaylistStore
 import com.henrylumis.mediaprayer.util.Prefs
 import kotlinx.coroutines.launch
 
@@ -27,6 +28,7 @@ class LibraryFragment : Fragment() {
     private var allSongs: List<Song> = emptyList()
     private var searchQuery: String = ""
     private var sortMode: SortMode = SortMode.TITLE_ASC
+    private var favoritesOnly: Boolean = false
 
     private enum class SortMode(val label: String) {
         TITLE_ASC("Title (A-Z)"),
@@ -73,6 +75,15 @@ class LibraryFragment : Fragment() {
 
         binding.btnSort.setOnClickListener { showSortMenu() }
 
+        binding.btnFavoritesFilter.setOnClickListener {
+            favoritesOnly = !favoritesOnly
+            binding.btnFavoritesFilter.setImageResource(
+                if (favoritesOnly) android.R.drawable.btn_star_big_on
+                else android.R.drawable.btn_star_big_off
+            )
+            applyFilterAndSort()
+        }
+
         loadLibrary()
     }
 
@@ -90,6 +101,11 @@ class LibraryFragment : Fragment() {
         popup.show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (favoritesOnly) applyFilterAndSort()
+    }
+
     fun loadLibrary() {
         binding.swipeRefresh.isRefreshing = true
         viewLifecycleOwner.lifecycleScope.launch {
@@ -102,6 +118,10 @@ class LibraryFragment : Fragment() {
     private fun applyFilterAndSort() {
         if (_binding == null) return
         var result = allSongs
+        if (favoritesOnly) {
+            val favoriteIds = PlaylistStore.getFavoriteIds(requireContext())
+            result = result.filter { favoriteIds.contains(it.id.toString()) }
+        }
         if (searchQuery.isNotBlank()) {
             val q = searchQuery.trim()
             result = result.filter {

@@ -36,6 +36,15 @@
             android:src="@android:drawable/ic_menu_sort_alphabetically"
             app:tint="@color/accent_cyan" />
 
+        <ImageButton
+            android:id="@+id/btn_favorites_filter"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_card"
+            android:src="@android:drawable/btn_star_big_off"
+            app:tint="@color/accent_cyan" />
+
     </LinearLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout

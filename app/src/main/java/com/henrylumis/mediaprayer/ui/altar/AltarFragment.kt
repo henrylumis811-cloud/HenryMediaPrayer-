@@ -23,6 +23,7 @@ import androidx.media3.common.Player
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.R
 import com.henrylumis.mediaprayer.databinding.FragmentAltarBinding
+import com.henrylumis.mediaprayer.util.PlaylistStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,9 +70,19 @@ class AltarFragment : Fragment() {
         setupShuffleRepeat()
 
         binding.btnAddPlaylist.setOnClickListener {
-            // Custom named playlists aren't built yet -- flag it honestly rather
-            // than silently doing nothing.
-            Toast.makeText(requireContext(), "Playlists are coming soon", Toast.LENGTH_SHORT).show()
+            val activity2 = activity as? MainActivity
+            val mediaId = activity2?.player?.currentMediaItem?.mediaId
+            if (mediaId == null) {
+                Toast.makeText(requireContext(), "Play a song first", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val nowFavorite = PlaylistStore.toggleFavorite(requireContext(), mediaId)
+            updateFavoriteButton(nowFavorite)
+            Toast.makeText(
+                requireContext(),
+                if (nowFavorite) "Added to Favorites" else "Removed from Favorites",
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         attachVisualizerWhenReady()
@@ -218,11 +229,17 @@ class AltarFragment : Fragment() {
         binding.visualizer.setPlaying(isPlaying)
     }
 
+    private fun updateFavoriteButton(isFavorite: Boolean) {
+        if (_binding == null) return
+        binding.btnAddPlaylist.text = if (isFavorite) "★ IN FAVORITES" else "ADD TO PLAYLIST"
+    }
+
     private fun updateNowPlaying() {
         val activity = activity as? MainActivity ?: return
         val item = activity.player?.currentMediaItem
         binding.trackTitle.text = item?.mediaMetadata?.title?.toString() ?: "Nothing playing"
         binding.trackArtist.text = item?.mediaMetadata?.artist?.toString() ?: "Open Library to pick a song"
+        updateFavoriteButton(item?.mediaId?.let { PlaylistStore.isFavorite(requireContext(), it) } ?: false)
         loadAlbumArt(item)
     }
 
