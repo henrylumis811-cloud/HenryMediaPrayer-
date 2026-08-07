@@ -17,6 +17,7 @@ import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.FragmentLibraryBinding
 import com.henrylumis.mediaprayer.util.PlaylistStore
 import com.henrylumis.mediaprayer.util.Prefs
+import com.henrylumis.mediaprayer.util.RecentlyPlayedStore
 import kotlinx.coroutines.launch
 
 class LibraryFragment : Fragment() {
@@ -35,7 +36,8 @@ class LibraryFragment : Fragment() {
         TITLE_DESC("Title (Z-A)"),
         ARTIST("Artist"),
         DURATION("Duration"),
-        DATE_ADDED("Date Added (Newest)")
+        DATE_ADDED("Date Added (Newest)"),
+        RECENTLY_PLAYED("Recently Played")
     }
 
     override fun onCreateView(
@@ -134,6 +136,13 @@ class LibraryFragment : Fragment() {
             SortMode.ARTIST -> result.sortedBy { it.artist.lowercase() }
             SortMode.DURATION -> result.sortedBy { it.durationMs }
             SortMode.DATE_ADDED -> result.sortedByDescending { it.dateAdded }
+            SortMode.RECENTLY_PLAYED -> {
+                val order = RecentlyPlayedStore.getRecentIds(requireContext())
+                result.sortedBy { song ->
+                    val pos = order.indexOf(song.id.toString())
+                    if (pos == -1) Int.MAX_VALUE else pos
+                }
+            }
         }
         adapter.submitList(result)
         binding.emptyState.visibility = if (result.isEmpty()) View.VISIBLE else View.GONE

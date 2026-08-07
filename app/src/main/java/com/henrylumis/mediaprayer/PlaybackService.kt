@@ -8,6 +8,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.henrylumis.mediaprayer.audio.EqualizerController
+import com.henrylumis.mediaprayer.util.RecentlyPlayedStore
 import com.henrylumis.mediaprayer.util.SleepTimer
 
 /**
@@ -72,6 +73,12 @@ class PlaybackService : MediaSessionService() {
                 if (playbackState == androidx.media3.common.Player.STATE_READY) {
                     setupEqualizerWhenReady()
                 }
+            }
+
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                // Records plays regardless of how playback started (Library tap,
+                // Queue tap, or auto-advance to the next track).
+                mediaItem?.mediaId?.let { RecentlyPlayedStore.addPlayed(applicationContext, it) }
             }
         })
 
