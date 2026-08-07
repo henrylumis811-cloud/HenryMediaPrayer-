@@ -7,6 +7,7 @@ import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.henrylumis.mediaprayer.audio.EqualizerController
 import com.henrylumis.mediaprayer.util.SleepTimer
 
 /**
@@ -29,6 +30,15 @@ class PlaybackService : MediaSessionService() {
     }
 
     val exoPlayer: ExoPlayer get() = player
+
+    var equalizer: EqualizerController? = null
+        private set
+
+    private fun setupEqualizerWhenReady() {
+        val sessionId = player.audioSessionId
+        if (sessionId == 0 || equalizer != null) return
+        equalizer = EqualizerController(sessionId)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -55,6 +65,12 @@ class PlaybackService : MediaSessionService() {
                     player.play()
                 } else {
                     player.stop()
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == androidx.media3.common.Player.STATE_READY) {
+                    setupEqualizerWhenReady()
                 }
             }
         })
@@ -90,6 +106,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         sleepTimer.cancel()
+        equalizer?.release()
         mediaSession?.run {
             player.release()
             release()

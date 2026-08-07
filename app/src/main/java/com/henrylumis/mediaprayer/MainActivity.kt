@@ -36,6 +36,8 @@ class MainActivity : AppCompatActivity() {
     /** Direct ExoPlayer reference, same process, used only where audioSessionId is needed (visualizer). */
     val exoPlayerForVisualizer get() = PlaybackService.instance?.exoPlayer
 
+    val equalizer get() = PlaybackService.instance?.equalizer
+
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> /* LibraryFragment re-scans itself when it becomes visible / on refresh */ }
@@ -119,6 +121,13 @@ class MainActivity : AppCompatActivity() {
         val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture.addListener({
             mediaController = controllerFuture.get()
+            mediaController?.addListener(object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    mediaItem?.mediaId?.let {
+                        com.henrylumis.mediaprayer.util.RecentlyPlayedStore.addPlayed(this@MainActivity, it)
+                    }
+                }
+            })
         }, MoreExecutors.directExecutor())
     }
 
