@@ -31,7 +31,7 @@
             android:gravity="center"
             android:paddingTop="18dp"
             android:paddingBottom="6dp"
-            android:text="Henry's Media Prayer"
+            android:text="Henry Media Player"
             android:textColor="@color/accent_cyan"
             android:textSize="20sp"
             android:textStyle="bold"

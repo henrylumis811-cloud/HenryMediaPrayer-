@@ -10,6 +10,7 @@ object Prefs {
     private const val KEY_BG_URI = "bg_photo_uri"
     private const val KEY_BG_OPACITY = "bg_photo_opacity" // 0-100
     private const val KEY_SORT_MODE = "library_sort_mode"
+    private const val KEY_VISUALIZER_STYLE = "visualizer_style"
 
     fun getNightMode(context: Context): Int {
         val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -54,5 +55,15 @@ object Prefs {
     fun setSortMode(context: Context, modeName: String) {
         val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_SORT_MODE, modeName).apply()
+    }
+
+    fun getVisualizerStyle(context: Context): String? {
+        val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_VISUALIZER_STYLE, null)
+    }
+
+    fun setVisualizerStyle(context: Context, styleName: String) {
+        val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_VISUALIZER_STYLE, styleName).apply()
     }
 }

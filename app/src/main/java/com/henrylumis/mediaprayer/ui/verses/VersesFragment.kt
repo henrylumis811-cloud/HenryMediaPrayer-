@@ -3,10 +3,13 @@ package com.henrylumis.mediaprayer.ui.verses
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -14,17 +17,22 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.data.LyricsLine
 import com.henrylumis.mediaprayer.data.LyricsParser
+import com.henrylumis.mediaprayer.databinding.DialogLyricSyncBinding
 import com.henrylumis.mediaprayer.databinding.FragmentVersesBinding
 import com.henrylumis.mediaprayer.util.LyricsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * Shows lyrics for the current song, preferring a synced .lrc file placed
  * next to the audio file (highlighted + auto-scrolled live), falling back
  * to manually pasted-in plain lyrics, and finally an empty state.
+ *
+ * Also hosts the tap-to-sync tool: given plain pasted lyrics, tap along with
+ * the song to build real timestamps, then export a proper .lrc file.
  */
 class VersesFragment : Fragment() {
 
@@ -48,6 +56,7 @@ class VersesFragment : Fragment() {
         binding.lyricsList.layoutManager = LinearLayoutManager(requireContext())
         binding.lyricsList.adapter = adapter
         binding.btnPasteLyrics.setOnClickListener { showPasteDialog() }
+        binding.btnSyncLyrics.setOnClickListener { startSyncFlow() }
         startTicking()
     }
 
@@ -61,18 +70,18 @@ class VersesFragment : Fragment() {
         val item = activity.player?.currentMediaItem
         val mediaId = item?.mediaId
         if (mediaId == null) {
-            android.widget.Toast.makeText(requireContext(), "Play a song first", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Play a song first", Toast.LENGTH_SHORT).show()
             return
         }
 
         val input = EditText(requireContext()).apply {
-            hint = "Paste or type the lyrics here"
+            hint = "Paste or type the lyrics here (plain text, one line per lyric)"
             minLines = 8
-            gravity = android.view.Gravity.TOP or android.view.Gravity.START
-            setText(LyricsStore.get(requireContext(), mediaId).orEmpty())
+            gravity = Gravity.TOP or Gravity.START
+            setText(currentPlainLyricsFallback(mediaId))
         }
         val padding = (16 * resources.displayMetrics.density).toInt()
-        val container = android.widget.FrameLayout(requireContext()).apply {
+        val container = FrameLayout(requireContext()).apply {
             setPadding(padding, padding, padding, padding)
             addView(input)
         }
@@ -87,11 +96,117 @@ class VersesFragment : Fragment() {
                 } else {
                     LyricsStore.set(requireContext(), mediaId, text)
                 }
-                lastLoadedMediaId = null // force a reload
+                lastLoadedMediaId = null
                 loadForCurrentSongIfNeeded(force = true)
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    /** If stored lyrics are already a synced LRC export, show the plain text for editing instead. */
+    private fun currentPlainLyricsFallback(mediaId: String): String {
+        val stored = LyricsStore.get(requireContext(), mediaId).orEmpty()
+        val parsed = LyricsParser.parse(stored)
+        return if (parsed.isNotEmpty()) parsed.joinToString("\n") { it.text } else stored
+    }
+
+    private fun startSyncFlow() {
+        val activity = activity as? MainActivity ?: return
+        val item = activity.player?.currentMediaItem
+        val mediaId = item?.mediaId
+        if (mediaId == null) {
+            Toast.makeText(requireContext(), "Play a song first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val lines = currentPlainLyricsFallback(mediaId).lines().filter { it.isNotBlank() }
+        if (lines.isEmpty()) {
+            Toast.makeText(requireContext(), "Paste the lyrics first, then tap Sync", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val dialogBinding = DialogLyricSyncBinding.inflate(LayoutInflater.from(requireContext()))
+        val timestamps = mutableListOf<Long>()
+        var index = 0
+
+        fun render() {
+            dialogBinding.syncProgressLabel.text = "Line ${index + 1} of ${lines.size}"
+            dialogBinding.syncCurrentLine.text = lines[index]
+        }
+        render()
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Tap-to-Sync Lyrics")
+            .setView(dialogBinding.root)
+            .setCancelable(false)
+            .create()
+
+        dialogBinding.btnTapSync.setOnClickListener {
+            val pos = activity.player?.currentPosition ?: 0L
+            timestamps.add(pos)
+            index++
+            if (index >= lines.size) {
+                finishSync(mediaId, item, lines, timestamps)
+                dialog.dismiss()
+            } else {
+                render()
+            }
+        }
+
+        dialogBinding.btnUndoSync.setOnClickListener {
+            if (timestamps.isNotEmpty()) {
+                timestamps.removeAt(timestamps.size - 1)
+                index = (index - 1).coerceAtLeast(0)
+                render()
+            }
+        }
+
+        dialogBinding.btnCancelSync.setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
+    }
+
+    private fun finishSync(
+        mediaId: String,
+        item: androidx.media3.common.MediaItem,
+        lines: List<String>,
+        timestamps: List<Long>
+    ) {
+        val lrcContent = lines.indices.joinToString("\n") { i ->
+            "[${formatLrcTimestamp(timestamps[i])}]${lines[i]}"
+        }
+
+        // Always keep an in-app copy so it works even if the file write below fails.
+        LyricsStore.set(requireContext(), mediaId, lrcContent)
+        lastLoadedMediaId = null
+        loadForCurrentSongIfNeeded(force = true)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val savedToDisk = withContext(Dispatchers.IO) {
+                try {
+                    val dataPath = item.mediaMetadata.extras?.getString("data_path")
+                    val lrcPath = LyricsParser.findLrcPath(dataPath) ?: return@withContext false
+                    File(lrcPath).writeText(lrcContent)
+                    true
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            if (_binding == null) return@launch
+            Toast.makeText(
+                requireContext(),
+                if (savedToDisk) "Synced lyrics saved as .lrc next to the song"
+                else "Synced lyrics saved in-app (couldn't write next to the audio file on this device)",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun formatLrcTimestamp(ms: Long): String {
+        val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(ms)
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        val hundredths = (ms % 1000) / 10
+        return String.format("%02d:%02d.%02d", minutes, seconds, hundredths)
     }
 
     private fun startTicking() {
@@ -131,7 +246,7 @@ class VersesFragment : Fragment() {
         val lrcPath = LyricsParser.findLrcPath(dataPath)
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val synced = withContext(Dispatchers.IO) {
+            val fileSynced = withContext(Dispatchers.IO) {
                 try {
                     if (lrcPath != null) {
                         val file = File(lrcPath)
@@ -144,17 +259,22 @@ class VersesFragment : Fragment() {
 
             if (_binding == null) return@launch
 
-            if (synced.isNotEmpty()) {
-                adapter.submitLines(synced, isSynced = true)
+            if (fileSynced.isNotEmpty()) {
+                adapter.submitLines(fileSynced, isSynced = true)
                 binding.versesEmptyState.visibility = View.GONE
                 return@launch
             }
 
-            val pasted = LyricsStore.get(requireContext(), mediaId)
-            if (!pasted.isNullOrBlank()) {
-                val plainLines = pasted.lines().filter { it.isNotBlank() }
-                    .map { LyricsLine(0L, it) }
-                adapter.submitLines(plainLines, isSynced = false)
+            val stored = LyricsStore.get(requireContext(), mediaId)
+            if (!stored.isNullOrBlank()) {
+                // Could be a synced export from the tap-to-sync tool, or plain pasted text.
+                val storedSynced = LyricsParser.parse(stored)
+                if (storedSynced.isNotEmpty()) {
+                    adapter.submitLines(storedSynced, isSynced = true)
+                } else {
+                    val plainLines = stored.lines().filter { it.isNotBlank() }.map { LyricsLine(0L, it) }
+                    adapter.submitLines(plainLines, isSynced = false)
+                }
                 binding.versesEmptyState.visibility = View.GONE
             } else {
                 adapter.submitLines(emptyList())

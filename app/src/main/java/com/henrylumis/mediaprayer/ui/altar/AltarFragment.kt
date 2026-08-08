@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.BitmapFactory
+import androidx.palette.graphics.Palette
 import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -23,7 +24,9 @@ import androidx.media3.common.Player
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.R
 import com.henrylumis.mediaprayer.databinding.FragmentAltarBinding
+import com.henrylumis.mediaprayer.ui.VisualizerStyle
 import com.henrylumis.mediaprayer.util.PlaylistStore
+import com.henrylumis.mediaprayer.util.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -68,6 +71,7 @@ class AltarFragment : Fragment() {
 
         setupVolumeSlider()
         setupShuffleRepeat()
+        setupVisualizerStyle()
 
         binding.btnAddPlaylist.setOnClickListener {
             val activity2 = activity as? MainActivity
@@ -88,6 +92,24 @@ class AltarFragment : Fragment() {
         attachVisualizerWhenReady()
         attachPlayerListenerWhenReady()
         startProgressUpdates()
+
+        binding.visualizer.onAmplitude = { amp -> binding.shaderBackground.setAmplitude(amp) }
+    }
+
+    private fun setupVisualizerStyle() {
+        val ctx = requireContext()
+        val saved = Prefs.getVisualizerStyle(ctx)?.let {
+            try { VisualizerStyle.valueOf(it) } catch (e: Exception) { null }
+        } ?: VisualizerStyle.BARS
+        binding.visualizer.style = saved
+
+        binding.btnVisualizerStyle.setOnClickListener {
+            val styles = VisualizerStyle.values()
+            val next = styles[(styles.indexOf(binding.visualizer.style) + 1) % styles.size]
+            binding.visualizer.style = next
+            Prefs.setVisualizerStyle(ctx, next.name)
+            Toast.makeText(ctx, "Visualizer: ${next.name.replace('_', ' ')}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setupVolumeSlider() {
@@ -270,9 +292,33 @@ class AltarFragment : Fragment() {
             if (bitmap != null) {
                 binding.albumArt.setImageBitmap(bitmap)
                 binding.backdrop.setImageBitmap(bitmap)
+                extractPaletteAsync(bitmap)
             } else {
                 binding.albumArt.setImageResource(R.drawable.ic_album_placeholder)
                 binding.backdrop.setImageResource(R.drawable.ic_album_placeholder)
+                binding.shaderBackground.setPaletteColors(
+                    listOf(0xFF00E5FF.toInt(), 0xFF7C4DFF.toInt(), 0xFFFF4081.toInt())
+                )
+            }
+        }
+    }
+
+    private fun extractPaletteAsync(bitmap: android.graphics.Bitmap) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val colors = withContext(Dispatchers.IO) {
+                try {
+                    val palette = Palette.from(bitmap).generate()
+                    listOfNotNull(
+                        palette.vibrantSwatch?.rgb,
+                        palette.dominantSwatch?.rgb,
+                        palette.mutedSwatch?.rgb
+                    )
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+            if (_binding != null && colors.isNotEmpty()) {
+                binding.shaderBackground.setPaletteColors(colors)
             }
         }
     }
