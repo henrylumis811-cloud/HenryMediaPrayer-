@@ -1,6 +1,8 @@
 package com.henrylumis.mediaprayer.ui.library
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
@@ -10,6 +12,8 @@ import android.view.ViewGroup
 import androidx.appcompat.widget.PopupMenu
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.data.MusicScanner
@@ -25,6 +29,8 @@ class LibraryFragment : Fragment() {
     private var _binding: FragmentLibraryBinding? = null
     private val binding get() = _binding!!
     private lateinit var adapter: SongAdapter
+    private val handler = Handler(Looper.getMainLooper())
+    private var nowPlayingListenerAttached = false
 
     private var allSongs: List<Song> = emptyList()
     private var searchQuery: String = ""
@@ -87,6 +93,37 @@ class LibraryFragment : Fragment() {
         }
 
         loadLibrary()
+        attachNowPlayingListenerWhenReady()
+    }
+
+    /** Keeps the Library list's small "now playing" indicator in sync with
+     *  the player, using the same ready-check/retry pattern as the Altar
+     *  screen's listener attachment. Purely visual -- doesn't touch playback. */
+    private fun attachNowPlayingListenerWhenReady() {
+        val activity = activity as? MainActivity ?: return
+        val player = activity.player
+        if (player != null) {
+            player.addListener(object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    updateNowPlayingIndicator()
+                }
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    updateNowPlayingIndicator()
+                }
+            })
+            nowPlayingListenerAttached = true
+            updateNowPlayingIndicator()
+            return
+        }
+        if (_binding == null) return
+        handler.postDelayed({ if (!nowPlayingListenerAttached) attachNowPlayingListenerWhenReady() }, 300)
+    }
+
+    private fun updateNowPlayingIndicator() {
+        if (_binding == null) return
+        val activity = activity as? MainActivity ?: return
+        val player = activity.player
+        adapter.setNowPlaying(player?.currentMediaItem?.mediaId, player?.isPlaying ?: false)
     }
 
     private fun showSortMenu() {
@@ -106,6 +143,7 @@ class LibraryFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (favoritesOnly) applyFilterAndSort()
+        updateNowPlayingIndicator()
     }
 
     fun loadLibrary() {

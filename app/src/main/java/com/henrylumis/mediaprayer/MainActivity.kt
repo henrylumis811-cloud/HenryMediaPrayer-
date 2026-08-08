@@ -128,28 +128,52 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             })
+            restoreLastSessionIfNeeded()
         }, MoreExecutors.directExecutor())
+    }
+
+    /** If the service came up fresh (no live queue -- e.g. app process was fully
+     *  killed) and we have a previously saved position, re-cue the exact same
+     *  queue/track/position so the Altar shows it immediately. Restored paused
+     *  on purpose -- it should be ready exactly where you left off, not start
+     *  blasting audio the instant the app opens. */
+    private fun restoreLastSessionIfNeeded() {
+        val controller = mediaController ?: return
+        if (controller.mediaItemCount > 0) return
+        val saved = Prefs.getSavedQueue(this) ?: return
+        lifecycleScope.launch {
+            val library = MusicScanner.scan(this@MainActivity)
+            val byId = library.associateBy { it.id }
+            val songs = saved.songIds.mapNotNull { byId[it] }
+            if (songs.isEmpty()) return@launch
+            val items = songs.map { buildMediaItem(it) }
+            val safeIndex = saved.index.coerceIn(0, items.size - 1)
+            controller.setMediaItems(items, safeIndex, saved.positionMs)
+            controller.prepare()
+        }
+    }
+
+    private fun buildMediaItem(song: Song): MediaItem {
+        val extras = android.os.Bundle().apply {
+            song.dataPath?.let { putString("data_path", it) }
+        }
+        return MediaItem.Builder()
+            .setUri(song.uriString)
+            .setMediaId(song.id.toString())
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(song.title)
+                    .setArtist(song.artist)
+                    .setAlbumTitle(song.album)
+                    .setExtras(extras)
+                    .build()
+            )
+            .build()
     }
 
     fun playQueue(songs: List<Song>, startIndex: Int) {
         val controller = mediaController ?: return
-        val items = songs.map { song ->
-            val extras = android.os.Bundle().apply {
-                song.dataPath?.let { putString("data_path", it) }
-            }
-            MediaItem.Builder()
-                .setUri(song.uriString)
-                .setMediaId(song.id.toString())
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(song.title)
-                        .setArtist(song.artist)
-                        .setAlbumTitle(song.album)
-                        .setExtras(extras)
-                        .build()
-                )
-                .build()
-        }
+        val items = songs.map { buildMediaItem(it) }
         controller.setMediaItems(items, startIndex, 0L)
         controller.prepare()
         controller.play()

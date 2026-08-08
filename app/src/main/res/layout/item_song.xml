@@ -37,6 +37,13 @@
             android:ellipsize="end" />
     </LinearLayout>
 
+    <com.henrylumis.mediaprayer.ui.VisualizerView
+        android:id="@+id/now_playing_visualizer"
+        android:layout_width="28dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="8dp"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/song_duration"
         android:layout_width="wrap_content"
