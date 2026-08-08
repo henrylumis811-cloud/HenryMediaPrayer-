@@ -20,6 +20,7 @@ import com.henrylumis.mediaprayer.util.Prefs
 import com.henrylumis.mediaprayer.util.RecentlyPlayedStore
 import com.henrylumis.mediaprayer.util.SavedPlayback
 import com.henrylumis.mediaprayer.util.SleepTimer
+import com.henrylumis.mediaprayer.util.ListeningStatsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -55,6 +56,12 @@ class PlaybackService : MediaSessionService() {
 
     private var loudnessNormalizer: LoudnessNormalizer? = null
     private var crossfade: CrossfadeController? = null
+
+    // --- Listening stats tracking state ---
+    private var statsLastPositionMs = 0L
+    private var statsAccumulatedMs = 0L
+    private var statsCountedThisTrack = false
+    private val PLAY_COUNT_THRESHOLD_MS = 30_000L
 
     private fun setupAudioEffectsWhenReady() {
         val sessionId = player.audioSessionId
@@ -101,6 +108,7 @@ class PlaybackService : MediaSessionService() {
                 crossfade?.onTrackTransitioned(player)
                 mediaItem?.mediaId?.let { RecentlyPlayedStore.addPlayed(applicationContext, it) }
                 applyNormalizationForCurrentTrack(mediaItem)
+                resetStatsTrackingForNewTrack(mediaItem)
                 savePlaybackState()
             }
         })
@@ -176,6 +184,64 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    // --- Listening analytics ---
+
+    private fun resetStatsTrackingForNewTrack(mediaItem: MediaItem?) {
+        statsAccumulatedMs = 0L
+        statsCountedThisTrack = false
+        statsLastPositionMs = 0L
+        if (mediaItem == null) return
+
+        ListeningStatsStore.setTrackMeta(
+            applicationContext,
+            mediaItem.mediaId,
+            mediaItem.mediaMetadata.title?.toString() ?: "Unknown",
+            mediaItem.mediaMetadata.artist?.toString() ?: ""
+        )
+
+        // Genre isn't in MediaStore's basic projection, so read it lazily from
+        // the file itself the first time each song plays, then cache it --
+        // avoids re-reading it (and the I/O cost) on every single play.
+        if (ListeningStatsStore.getGenre(applicationContext, mediaItem.mediaId) == null) {
+            val dataPath = mediaItem.mediaMetadata.extras?.getString("data_path")
+            if (dataPath != null) {
+                serviceScope.launch {
+                    val genre = withContext(Dispatchers.IO) {
+                        try {
+                            val retriever = android.media.MediaMetadataRetriever()
+                            retriever.setDataSource(dataPath)
+                            val g = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE)
+                            retriever.release()
+                            g
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    ListeningStatsStore.setGenreIfAbsent(applicationContext, mediaItem.mediaId, genre)
+                }
+            }
+        }
+    }
+
+    /** Called from the periodic tick -- accumulates real listened time (seek-aware:
+     *  a jump in position isn't counted as "listened", only steady playback is). */
+    private fun trackListeningProgress() {
+        val item = player.currentMediaItem ?: return
+        if (!player.isPlaying) return
+        val position = player.currentPosition
+        val delta = position - statsLastPositionMs
+        statsLastPositionMs = position
+
+        if (delta in 1..10_000) {
+            ListeningStatsStore.addListenedMs(applicationContext, item.mediaId, delta)
+            statsAccumulatedMs += delta
+            if (!statsCountedThisTrack && statsAccumulatedMs >= PLAY_COUNT_THRESHOLD_MS) {
+                statsCountedThisTrack = true
+                ListeningStatsStore.incrementPlayCount(applicationContext, item.mediaId)
+            }
+        }
+    }
+
     /** Rebuilds the last-played track (paused, at its saved position) so the
      *  Altar screen and playback are ready to continue the instant the app
      *  reopens, even after a full process restart. */
@@ -231,6 +297,15 @@ class PlaybackService : MediaSessionService() {
             }
         }
         stateSaveHandler.postDelayed(runnable, 5000)
+
+        // Separate, tighter-interval tick for listening-time accuracy.
+        val statsRunnable = object : Runnable {
+            override fun run() {
+                trackListeningProgress()
+                stateSaveHandler.postDelayed(this, 2000)
+            }
+        }
+        stateSaveHandler.postDelayed(statsRunnable, 2000)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession

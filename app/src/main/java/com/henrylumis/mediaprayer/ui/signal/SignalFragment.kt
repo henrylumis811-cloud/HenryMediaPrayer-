@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.fragment.app.Fragment
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.databinding.FragmentSignalBinding
+import com.henrylumis.mediaprayer.util.ListeningStatsStore
 import com.henrylumis.mediaprayer.util.Prefs
 
 /**
@@ -77,6 +78,73 @@ class SignalFragment : Fragment() {
         }
 
         buildEqualizerWhenReady()
+        renderAnalytics()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        renderAnalytics()
+    }
+
+    private fun renderAnalytics() {
+        if (_binding == null) return
+        val ctx = requireContext()
+        val totalMs = ListeningStatsStore.getTotalListenedMs(ctx)
+        val totalPlays = ListeningStatsStore.getTotalPlays(ctx)
+
+        if (totalPlays == 0) {
+            binding.analyticsSummary.text = "No listening history yet -- play some songs and check back here."
+            binding.analyticsTopSongsHeader.visibility = View.GONE
+            binding.analyticsTopGenresHeader.visibility = View.GONE
+            binding.analyticsTopSongsList.removeAllViews()
+            binding.analyticsTopGenresList.removeAllViews()
+            return
+        }
+
+        binding.analyticsSummary.text = "Total listening time: ${formatDuration(totalMs)}  \u2022  $totalPlays tracked plays"
+
+        val topSongs = ListeningStatsStore.topPlayed(ctx, 5).filter { it.playCount > 0 }
+        binding.analyticsTopSongsList.removeAllViews()
+        if (topSongs.isEmpty()) {
+            binding.analyticsTopSongsHeader.visibility = View.GONE
+        } else {
+            binding.analyticsTopSongsHeader.visibility = View.VISIBLE
+            topSongs.forEach { stat ->
+                val row = TextView(ctx).apply {
+                    text = "${stat.title} \u2014 ${stat.artist}  (${stat.playCount}\u00D7)"
+                    setTextColor(resources.getColor(com.henrylumis.mediaprayer.R.color.text_secondary, null))
+                    textSize = 13f
+                    setPadding(0, 4, 0, 4)
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }
+                binding.analyticsTopSongsList.addView(row)
+            }
+        }
+
+        val topGenres = ListeningStatsStore.topGenres(ctx, 3)
+        binding.analyticsTopGenresList.removeAllViews()
+        if (topGenres.isEmpty()) {
+            binding.analyticsTopGenresHeader.visibility = View.GONE
+        } else {
+            binding.analyticsTopGenresHeader.visibility = View.VISIBLE
+            topGenres.forEach { (genre, count) ->
+                val row = TextView(ctx).apply {
+                    text = "$genre  ($count)"
+                    setTextColor(resources.getColor(com.henrylumis.mediaprayer.R.color.text_secondary, null))
+                    textSize = 13f
+                    setPadding(0, 4, 0, 4)
+                }
+                binding.analyticsTopGenresList.addView(row)
+            }
+        }
+    }
+
+    private fun formatDuration(ms: Long): String {
+        val totalMinutes = ms / 60000
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
     }
 
     private fun setupPlaybackSection(ctx: android.content.Context) {
