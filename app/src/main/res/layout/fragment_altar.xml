@@ -123,6 +123,32 @@
 
             </FrameLayout>
 
+            <!-- Lyrics ticker: timed lyrics swap line-by-line with playback;
+                 untimed lyrics crawl upward slowly, credits-style. Tapping
+                 jumps straight to the Verses tab. -->
+            <FrameLayout
+                android:id="@+id/lyrics_ticker_bar"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_chip_track"
+                android:clickable="true"
+                android:focusable="true"
+                android:clipChildren="true"
+                android:clipToPadding="true"
+                android:paddingHorizontal="14dp">
+
+                <TextView
+                    android:id="@+id/lyrics_ticker_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="start"
+                    android:textColor="@color/accent_cyan"
+                    android:textSize="14sp"
+                    android:lineSpacingExtra="10dp"
+                    android:text="LYRICS" />
+            </FrameLayout>
+
             <!-- Transport controls: chrome backward / metallic-purple play / chrome forward -->
             <LinearLayout
                 android:layout_width="match_parent"

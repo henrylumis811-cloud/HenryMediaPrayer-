@@ -74,6 +74,11 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /** Jumps straight to the Verses tab (index 3 in the pager: Altar, Library, Queue, Verses, Signal). */
+    fun goToVerses() {
+        binding.viewPager.setCurrentItem(3, true)
+    }
+
     fun clearBackground() {
         Prefs.setBackgroundUri(this, null)
         applyBackground()

@@ -1,5 +1,6 @@
 package com.henrylumis.mediaprayer.ui.altar
 
+import android.animation.ValueAnimator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -15,6 +16,7 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.LinearInterpolator
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -23,13 +25,17 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.R
+import com.henrylumis.mediaprayer.data.LyricsLine
+import com.henrylumis.mediaprayer.data.LyricsParser
 import com.henrylumis.mediaprayer.databinding.FragmentAltarBinding
 import com.henrylumis.mediaprayer.ui.VisualizerStyle
+import com.henrylumis.mediaprayer.util.LyricsStore
 import com.henrylumis.mediaprayer.util.PlaylistStore
 import com.henrylumis.mediaprayer.util.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class AltarFragment : Fragment() {
@@ -44,6 +50,14 @@ class AltarFragment : Fragment() {
     private var userIsDraggingSeek = false
     private lateinit var audioManager: AudioManager
     private var volumeReceiver: BroadcastReceiver? = null
+
+    // Lyrics ticker bar state (separate from the full Verses screen; reuses
+    // the same LyricsParser/LyricsStore data so both stay consistent).
+    private var lyricsLines: List<LyricsLine> = emptyList()
+    private var lyricsSynced = false
+    private var lastLyricsMediaId: String? = null
+    private var lastActiveLyricIndex = -1
+    private var lyricsCrawlAnimator: ValueAnimator? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -92,6 +106,10 @@ class AltarFragment : Fragment() {
         attachVisualizerWhenReady()
         attachPlayerListenerWhenReady()
         startProgressUpdates()
+
+        binding.lyricsTickerBar.setOnClickListener {
+            (activity as? MainActivity)?.goToVerses()
+        }
 
         binding.visualizer.onAmplitude = { amp -> binding.shaderBackground.setAmplitude(amp) }
     }
@@ -263,6 +281,126 @@ class AltarFragment : Fragment() {
         binding.trackArtist.text = item?.mediaMetadata?.artist?.toString() ?: "Open Library to pick a song"
         updateFavoriteButton(item?.mediaId?.let { PlaylistStore.isFavorite(requireContext(), it) } ?: false)
         loadAlbumArt(item)
+        loadLyricsForCurrentSongIfNeeded(item)
+    }
+
+    /** Loads lyrics for the ticker bar using the exact same sources the Verses
+     *  screen uses (a synced .lrc file beside the audio, else in-app pasted
+     *  lyrics), so both screens always agree on what's synced vs plain. */
+    private fun loadLyricsForCurrentSongIfNeeded(item: MediaItem?) {
+        val mediaId = item?.mediaId
+        if (mediaId == lastLyricsMediaId) return
+        lastLyricsMediaId = mediaId
+
+        stopLyricsCrawl()
+        lastActiveLyricIndex = -1
+
+        if (mediaId == null) {
+            lyricsLines = emptyList()
+            lyricsSynced = false
+            binding.lyricsTickerText.text = "LYRICS"
+            return
+        }
+
+        val dataPath = item.mediaMetadata.extras?.getString("data_path")
+        val lrcPath = LyricsParser.findLrcPath(dataPath)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val fileSynced = withContext(Dispatchers.IO) {
+                try {
+                    if (lrcPath != null) {
+                        val file = File(lrcPath)
+                        if (file.exists()) LyricsParser.parse(file.readText()) else emptyList()
+                    } else emptyList()
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+
+            if (_binding == null || mediaId != lastLyricsMediaId) return@launch
+
+            if (fileSynced.isNotEmpty()) {
+                applyLyrics(fileSynced, isSynced = true)
+                return@launch
+            }
+
+            val stored = LyricsStore.get(requireContext(), mediaId)
+            if (!stored.isNullOrBlank()) {
+                val storedSynced = LyricsParser.parse(stored)
+                if (storedSynced.isNotEmpty()) {
+                    applyLyrics(storedSynced, isSynced = true)
+                } else {
+                    val plainLines = stored.lines().filter { it.isNotBlank() }.map { LyricsLine(0L, it) }
+                    applyLyrics(plainLines, isSynced = false)
+                }
+            } else {
+                lyricsLines = emptyList()
+                lyricsSynced = false
+                binding.lyricsTickerText.text = "No lyrics yet -- tap to add"
+            }
+        }
+    }
+
+    private fun applyLyrics(lines: List<LyricsLine>, isSynced: Boolean) {
+        lyricsLines = lines
+        lyricsSynced = isSynced
+        if (isSynced) {
+            binding.lyricsTickerText.translationY = 0f
+            updateLyricsTicker((activity as? MainActivity)?.player?.currentPosition ?: 0L)
+        } else {
+            startLyricsCrawl(lines)
+        }
+    }
+
+    /** Synced lyrics: swap to whichever line is current for the playback
+     *  position, same "last line at/ before position" rule the Verses list uses. */
+    private fun updateLyricsTicker(positionMs: Long) {
+        if (_binding == null || !lyricsSynced || lyricsLines.isEmpty()) return
+        var idx = -1
+        for (i in lyricsLines.indices) {
+            if (lyricsLines[i].timeMs <= positionMs) idx = i else break
+        }
+        if (idx == lastActiveLyricIndex) return
+        lastActiveLyricIndex = idx
+        binding.lyricsTickerText.text = if (idx >= 0) lyricsLines[idx].text else "\u266A"
+    }
+
+    /** Untimed lyrics: a slow, continuous upward crawl through all the lines,
+     *  credits-style, clipped inside the fixed-height bar. */
+    private fun startLyricsCrawl(lines: List<LyricsLine>) {
+        stopLyricsCrawl()
+        val text = lines.joinToString("\n\n") { it.text }
+        binding.lyricsTickerText.text = text.ifBlank { "No lyrics yet -- tap to add" }
+
+        binding.lyricsTickerText.post {
+            if (_binding == null) return@post
+            val barHeight = binding.lyricsTickerBar.height.toFloat()
+            val textHeight = binding.lyricsTickerText.height.toFloat()
+            if (barHeight <= 0f) return@post
+
+            val startY = barHeight
+            val endY = -textHeight
+            val distancePx = startY - endY
+            val pxPerSecond = 18f * resources.displayMetrics.density
+            val durationMs = ((distancePx / pxPerSecond) * 1000).toLong().coerceAtLeast(4000L)
+
+            lyricsCrawlAnimator = ValueAnimator.ofFloat(startY, endY).apply {
+                duration = durationMs
+                interpolator = LinearInterpolator()
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                addUpdateListener {
+                    if (_binding != null) binding.lyricsTickerText.translationY = it.animatedValue as Float
+                }
+                start()
+            }
+        }
+    }
+
+    private fun stopLyricsCrawl() {
+        lyricsCrawlAnimator?.cancel()
+        lyricsCrawlAnimator = null
+        if (_binding != null) binding.lyricsTickerText.translationY = 0f
     }
 
     private fun loadAlbumArt(item: MediaItem?) {
@@ -334,6 +472,7 @@ class AltarFragment : Fragment() {
                         binding.seekBar.max = dur.toInt()
                         if (!userIsDraggingSeek) binding.seekBar.progress = pos.toInt()
                         binding.timeReadout.text = "${format(pos)} / ${format(dur)}"
+                        updateLyricsTicker(pos)
                     }
                     updatePlayPauseButton(player.isPlaying)
                 }
@@ -350,6 +489,7 @@ class AltarFragment : Fragment() {
 
     override fun onDestroyView() {
         progressRunnable?.let { handler.removeCallbacks(it) }
+        stopLyricsCrawl()
         binding.visualizer.release()
         super.onDestroyView()
         _binding = null
