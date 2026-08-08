@@ -14,3 +14,4 @@ local.properties
 *.class
 /app/build
 /app/release
+.github/workflows/android-build.yml
