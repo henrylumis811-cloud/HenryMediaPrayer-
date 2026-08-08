@@ -24,22 +24,21 @@ class EqualizerController(sessionId: Int) {
         var builtPresets = emptyList<String>()
         try {
             eq = Equalizer(0, sessionId)
-            val e = eq
-            e.enabled = true
-            val range = e.bandLevelRange
-            builtBands = (0 until e.numberOfBands).map { i ->
+            eq.enabled = true
+            val range = eq.bandLevelRange
+            builtBands = (0 until eq.numberOfBands).map { i ->
                 val idx = i.toShort()
                 EqBand(
                     index = idx,
-                    centerFreqHz = e.getCenterFreq(idx) / 1000,
+                    centerFreqHz = eq.getCenterFreq(idx) / 1000,
                     minLevel = range[0],
                     maxLevel = range[1],
-                    level = e.getBandLevel(idx)
+                    level = eq.getBandLevel(idx)
                 )
             }
-            builtPresets = (0 until e.numberOfPresets).map { e.getPresetName(it.toShort()) }
-        } catch (ex: Exception) {
-            Log.w("EqualizerController", "Equalizer unavailable on this device", ex)
+            builtPresets = (0 until eq.numberOfPresets).map { eq.getPresetName(it.toShort()) }
+        } catch (e: Exception) {
+            Log.w("EqualizerController", "Equalizer unavailable on this device", e)
             try { eq?.release() } catch (_: Exception) {}
             eq = null
         }

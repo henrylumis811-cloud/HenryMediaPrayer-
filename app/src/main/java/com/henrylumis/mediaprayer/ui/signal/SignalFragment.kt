@@ -59,6 +59,8 @@ class SignalFragment : Fragment() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        setupPlaybackSection(ctx)
+
         val timerOptions = listOf(0, 15, 30, 45, 60)
         binding.sleepTimerGroup.removeAllViews()
         timerOptions.forEach { minutes ->
@@ -75,6 +77,31 @@ class SignalFragment : Fragment() {
         }
 
         buildEqualizerWhenReady()
+    }
+
+    private fun setupPlaybackSection(ctx: android.content.Context) {
+        binding.crossfadeSwitch.isChecked = Prefs.isCrossfadeEnabled(ctx)
+        binding.crossfadeSwitch.setOnCheckedChangeListener { _, checked ->
+            Prefs.setCrossfadeEnabled(ctx, checked)
+        }
+
+        val savedSeconds = Prefs.getCrossfadeSeconds(ctx)
+        binding.crossfadeLengthSlider.progress = (savedSeconds - 1).coerceIn(0, 11)
+        binding.crossfadeLengthLabel.text = "Crossfade length: ${savedSeconds}s"
+        binding.crossfadeLengthSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val seconds = progress + 1
+                binding.crossfadeLengthLabel.text = "Crossfade length: ${seconds}s"
+                if (fromUser) Prefs.setCrossfadeSeconds(ctx, seconds)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.normalizationSwitch.isChecked = Prefs.isNormalizationEnabled(ctx)
+        binding.normalizationSwitch.setOnCheckedChangeListener { _, checked ->
+            Prefs.setNormalizationEnabled(ctx, checked)
+        }
     }
 
     private fun buildEqualizerWhenReady() {

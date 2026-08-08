@@ -6,13 +6,26 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.henrylumis.mediaprayer.audio.CrossfadeController
 import com.henrylumis.mediaprayer.audio.EqualizerController
+import com.henrylumis.mediaprayer.audio.LoudnessNormalizer
+import com.henrylumis.mediaprayer.audio.ReplayGainReader
+import com.henrylumis.mediaprayer.util.PlaybackStateStore
 import com.henrylumis.mediaprayer.util.Prefs
 import com.henrylumis.mediaprayer.util.RecentlyPlayedStore
+import com.henrylumis.mediaprayer.util.SavedPlayback
 import com.henrylumis.mediaprayer.util.SleepTimer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Media3's MediaSessionService owns the ExoPlayer instance, the system
@@ -24,11 +37,13 @@ import com.henrylumis.mediaprayer.util.SleepTimer
 class PlaybackService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
+    private lateinit var audioAttributes: AudioAttributes
     private var mediaSession: MediaSession? = null
     val sleepTimer = SleepTimer()
+    private val stateSaveHandler = Handler(Looper.getMainLooper())
+    private val crossfadeWatcherHandler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
 
-    // Same-process accessor so the UI (visualizer) can read audioSessionId,
-    // which isn't exposed on the generic Player/MediaController interface.
     companion object {
         var instance: PlaybackService? = null
     }
@@ -38,51 +53,35 @@ class PlaybackService : MediaSessionService() {
     var equalizer: EqualizerController? = null
         private set
 
-    // Periodically persists queue + exact position while playing, so an
-    // abrupt process kill (swipe-away, low-memory) doesn't lose the spot --
-    // onPause/onDestroy/onTaskRemoved cover the clean-shutdown paths below.
-    private val saveStateHandler = Handler(Looper.getMainLooper())
-    private var saveStateRunnable: Runnable? = null
+    private var loudnessNormalizer: LoudnessNormalizer? = null
+    private var crossfade: CrossfadeController? = null
 
-    private fun saveState() {
-        if (!::player.isInitialized) return
-        try {
-            val ids = (0 until player.mediaItemCount).mapNotNull { i ->
-                player.getMediaItemAt(i).mediaId.toLongOrNull()
-            }
-            if (ids.isEmpty()) return
-            val index = player.currentMediaItemIndex.coerceIn(0, ids.size - 1)
-            val position = player.currentPosition.coerceAtLeast(0)
-            Prefs.setSavedQueue(this, ids, index, position)
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun setupEqualizerWhenReady() {
+    private fun setupAudioEffectsWhenReady() {
         val sessionId = player.audioSessionId
-        if (sessionId == 0 || equalizer != null) return
-        equalizer = EqualizerController(sessionId)
+        if (sessionId == 0) return
+        if (equalizer == null) equalizer = EqualizerController(sessionId)
+        if (loudnessNormalizer == null) loudnessNormalizer = LoudnessNormalizer(sessionId)
     }
 
     override fun onCreate() {
         super.onCreate()
         instance = this
 
-        val audioAttributes = AudioAttributes.Builder()
+        audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
-            .setHandleAudioBecomingNoisy(true) // pause when headphones unplugged
+            .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
-        // Belt-and-braces: never let an unexpected player error kill the process.
+        crossfade = CrossfadeController(applicationContext, audioAttributes)
+
         player.addListener(object : androidx.media3.common.Player.Listener {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                // Skip the broken track instead of crashing the whole app.
                 if (player.hasNextMediaItem()) {
                     player.seekToNextMediaItem()
                     player.prepare()
@@ -94,29 +93,17 @@ class PlaybackService : MediaSessionService() {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == androidx.media3.common.Player.STATE_READY) {
-                    setupEqualizerWhenReady()
+                    setupAudioEffectsWhenReady()
                 }
             }
 
-            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-                // Records plays regardless of how playback started (Library tap,
-                // Queue tap, or auto-advance to the next track).
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                crossfade?.onTrackTransitioned(player)
                 mediaItem?.mediaId?.let { RecentlyPlayedStore.addPlayed(applicationContext, it) }
-                saveState()
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (!isPlaying) saveState()
+                applyNormalizationForCurrentTrack(mediaItem)
+                savePlaybackState()
             }
         })
-
-        saveStateRunnable = object : Runnable {
-            override fun run() {
-                if (::player.isInitialized && player.isPlaying) saveState()
-                saveStateHandler.postDelayed(this, 5000)
-            }
-        }
-        saveStateHandler.post(saveStateRunnable!!)
 
         val sessionActivityIntent = packageManager.getLaunchIntentForPackage(packageName)
         val pendingIntent = sessionActivityIntent?.let {
@@ -133,14 +120,123 @@ class PlaybackService : MediaSessionService() {
         sleepTimer.onFire = {
             player.pause()
         }
+
+        restoreLastSessionIfFresh()
+        startPeriodicStateSaving()
+        startCrossfadeWatcher()
+    }
+
+    // --- Gapless playback ---
+    // No special code is required for basic gapless transitions between
+    // tracks -- ExoPlayer's extractors read embedded gapless metadata (e.g.
+    // MP3 LAME/Xing headers) automatically and preload the next queue item
+    // ahead of time, so back-to-back tracks already play with no gap by
+    // default. Crossfade (below) is an optional, separate, opt-in effect on
+    // top of that for a more deliberate DJ-style blend.
+
+    // --- Crossfade ---
+
+    private fun startCrossfadeWatcher() {
+        val runnable = object : Runnable {
+            override fun run() {
+                if (Prefs.isCrossfadeEnabled(applicationContext) && player.isPlaying) {
+                    val duration = player.duration
+                    val position = player.currentPosition
+                    val crossfadeMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
+                    if (duration > 0 && duration - position <= crossfadeMs) {
+                        crossfade?.maybeStartCrossfade(player, crossfadeMs)
+                    }
+                }
+                crossfadeWatcherHandler.postDelayed(this, 500)
+            }
+        }
+        crossfadeWatcherHandler.postDelayed(runnable, 500)
+    }
+
+    // --- Volume normalization (ReplayGain) ---
+
+    private fun applyNormalizationForCurrentTrack(mediaItem: MediaItem?) {
+        player.volume = 1f
+        loudnessNormalizer?.reset()
+        if (!Prefs.isNormalizationEnabled(applicationContext)) return
+        val dataPath = mediaItem?.mediaMetadata?.extras?.getString("data_path") ?: return
+
+        serviceScope.launch {
+            val gainDb = withContext(Dispatchers.IO) { ReplayGainReader.readTrackGainDb(dataPath) }
+            withContext(Dispatchers.Main) {
+                if (gainDb == null) return@withContext // no embedded tag -- leave at normal volume
+                val normalizer = loudnessNormalizer ?: return@withContext
+                if (gainDb >= 0) {
+                    normalizer.applyBoostDb(gainDb)
+                } else {
+                    normalizer.reset()
+                    player.volume = normalizer.dbToLinearAttenuation(gainDb)
+                }
+            }
+        }
+    }
+
+    /** Rebuilds the last-played track (paused, at its saved position) so the
+     *  Altar screen and playback are ready to continue the instant the app
+     *  reopens, even after a full process restart. */
+    private fun restoreLastSessionIfFresh() {
+        if (player.mediaItemCount > 0) return
+        val saved = PlaybackStateStore.load(applicationContext) ?: return
+        try {
+            val extras = android.os.Bundle().apply {
+                saved.dataPath?.let { putString("data_path", it) }
+            }
+            val item = MediaItem.Builder()
+                .setUri(saved.uri)
+                .setMediaId(saved.mediaId)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(saved.title)
+                        .setArtist(saved.artist)
+                        .setAlbumTitle(saved.album)
+                        .setExtras(extras)
+                        .build()
+                )
+                .build()
+            player.setMediaItem(item, saved.positionMs)
+            player.prepare()
+            player.playWhenReady = false
+        } catch (_: Exception) {
+            // Corrupt/removed file -- just start with an empty queue instead of crashing.
+        }
+    }
+
+    private fun savePlaybackState() {
+        val item = player.currentMediaItem ?: return
+        val uri = item.localConfiguration?.uri?.toString() ?: return
+        PlaybackStateStore.save(
+            applicationContext,
+            SavedPlayback(
+                mediaId = item.mediaId,
+                uri = uri,
+                title = item.mediaMetadata.title?.toString() ?: "",
+                artist = item.mediaMetadata.artist?.toString() ?: "",
+                album = item.mediaMetadata.albumTitle?.toString() ?: "",
+                positionMs = player.currentPosition,
+                dataPath = item.mediaMetadata.extras?.getString("data_path")
+            )
+        )
+    }
+
+    private fun startPeriodicStateSaving() {
+        val runnable = object : Runnable {
+            override fun run() {
+                if (player.mediaItemCount > 0) savePlaybackState()
+                stateSaveHandler.postDelayed(this, 5000)
+            }
+        }
+        stateSaveHandler.postDelayed(runnable, 5000)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        saveState()
-        // If nothing is playing, let the service die with the task (normal Android behavior).
-        // If something IS playing, Media3 keeps the foreground service alive automatically.
+        savePlaybackState()
         val player = mediaSession?.player
         if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
             stopSelf()
@@ -149,10 +245,14 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        saveState()
-        saveStateRunnable?.let { saveStateHandler.removeCallbacks(it) }
+        savePlaybackState()
+        stateSaveHandler.removeCallbacksAndMessages(null)
+        crossfadeWatcherHandler.removeCallbacksAndMessages(null)
+        crossfade?.release()
+        serviceScope.cancel()
         sleepTimer.cancel()
         equalizer?.release()
+        loudnessNormalizer?.release()
         mediaSession?.run {
             player.release()
             release()

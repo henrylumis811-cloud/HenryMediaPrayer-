@@ -6,7 +6,6 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.ItemSongBinding
-import com.henrylumis.mediaprayer.ui.VisualizerStyle
 import java.util.concurrent.TimeUnit
 
 class SongAdapter(
@@ -14,8 +13,8 @@ class SongAdapter(
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     private val songs = mutableListOf<Song>()
-    private var nowPlayingId: String? = null
-    private var nowPlayingIsPlaying: Boolean = false
+    private var playingSongId: String? = null
+    private var isPlaying = false
 
     fun submitList(newSongs: List<Song>) {
         songs.clear()
@@ -25,14 +24,16 @@ class SongAdapter(
 
     fun currentList(): List<Song> = songs
 
-    /** Marks which song (by mediaId, i.e. song.id.toString()) is the current
-     *  track in the player, and whether it's actively playing, so its row can
-     *  show the small "now playing" visualizer. Doesn't affect playback. */
-    fun setNowPlaying(mediaId: String?, isPlaying: Boolean) {
-        if (nowPlayingId == mediaId && nowPlayingIsPlaying == isPlaying) return
-        nowPlayingId = mediaId
-        nowPlayingIsPlaying = isPlaying
-        notifyDataSetChanged()
+    /** Called periodically from LibraryFragment with the live playback state. */
+    fun updateNowPlaying(mediaId: String?, playing: Boolean) {
+        if (mediaId == playingSongId && playing == isPlaying) return
+        val previousId = playingSongId
+        playingSongId = mediaId
+        isPlaying = playing
+        songs.forEachIndexed { index, song ->
+            val idStr = song.id.toString()
+            if (idStr == mediaId || idStr == previousId) notifyItemChanged(index)
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
@@ -42,27 +43,28 @@ class SongAdapter(
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songs[position]
-        val isNowPlaying = nowPlayingId != null && song.id.toString() == nowPlayingId
-        holder.bind(song, isNowPlaying, nowPlayingIsPlaying)
+        val isThisPlaying = song.id.toString() == playingSongId
+        holder.bind(song, isThisPlaying, isPlaying)
         holder.itemView.setOnClickListener { onClick(song, position) }
     }
 
     override fun getItemCount() = songs.size
 
     class SongViewHolder(private val binding: ItemSongBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(song: Song, isNowPlaying: Boolean, isPlaying: Boolean) {
+        fun bind(song: Song, isCurrent: Boolean, isPlaying: Boolean) {
             binding.songTitle.text = song.title
             binding.songArtist.text = song.artist
-            val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(song.durationMs)
-            binding.songDuration.text = String.format("%d:%02d", totalSeconds / 60, totalSeconds % 60)
 
-            if (isNowPlaying) {
-                binding.nowPlayingVisualizer.visibility = View.VISIBLE
-                binding.nowPlayingVisualizer.style = VisualizerStyle.VU_METER
-                binding.nowPlayingVisualizer.setPlaying(isPlaying)
+            if (isCurrent) {
+                binding.miniEq.visibility = View.VISIBLE
+                binding.miniEq.setPlaying(isPlaying)
+                binding.songDuration.visibility = View.GONE
             } else {
-                binding.nowPlayingVisualizer.visibility = View.GONE
-                binding.nowPlayingVisualizer.setPlaying(false)
+                binding.miniEq.visibility = View.GONE
+                binding.miniEq.setPlaying(false)
+                binding.songDuration.visibility = View.VISIBLE
+                val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(song.durationMs)
+                binding.songDuration.text = String.format("%d:%02d", totalSeconds / 60, totalSeconds % 60)
             }
         }
     }
