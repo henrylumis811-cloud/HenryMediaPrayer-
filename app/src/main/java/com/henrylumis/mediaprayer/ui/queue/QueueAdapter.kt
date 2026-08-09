@@ -4,6 +4,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.henrylumis.mediaprayer.R
 import com.henrylumis.mediaprayer.databinding.ItemQueueSongBinding
@@ -17,14 +18,37 @@ class QueueAdapter(
     private val items = mutableListOf<MediaItem>()
     private var currentIndex = -1
 
-    fun submitList(newItems: List<MediaItem>, playingIndex: Int) {
-        items.clear()
-        items.addAll(newItems)
-        currentIndex = playingIndex
-        notifyDataSetChanged()
+    init {
+        setHasStableIds(true)
     }
 
-    /** Called live during drag, before the underlying player queue is told to move. */
+    override fun getItemId(position: Int): Long =
+        items.getOrNull(position)?.mediaId?.hashCode()?.toLong() ?: RecyclerView.NO_ID
+
+    /** Periodic/authoritative refresh -- diffed instead of a full rebuild, so
+     *  the background auto-refresh (every 1.5s) doesn't visibly flicker the list. */
+    fun submitList(newItems: List<MediaItem>, playingIndex: Int) {
+        val oldItems = items.toList()
+        val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldItems.size
+            override fun getNewListSize() = newItems.size
+            override fun areItemsTheSame(oldPos: Int, newPos: Int) =
+                oldItems[oldPos].mediaId == newItems[newPos].mediaId
+            override fun areContentsTheSame(oldPos: Int, newPos: Int) =
+                oldItems[oldPos].mediaId == newItems[newPos].mediaId
+        })
+        items.clear()
+        items.addAll(newItems)
+        val oldIndex = currentIndex
+        currentIndex = playingIndex
+        diffResult.dispatchUpdatesTo(this)
+        if (oldIndex != currentIndex) {
+            if (oldIndex in items.indices) notifyItemChanged(oldIndex)
+            if (currentIndex in items.indices) notifyItemChanged(currentIndex)
+        }
+    }
+
+    /** Called live during drag, purely a local optimistic reorder -- no player/session calls. */
     fun moveLocally(from: Int, to: Int) {
         val item = items.removeAt(from)
         items.add(to, item)
@@ -56,8 +80,6 @@ class QueueAdapter(
     }
 
     override fun getItemCount() = items.size
-
-    fun onDragMoved(from: Int, to: Int) = onMove(from, to)
 
     class QueueViewHolder(val binding: ItemQueueSongBinding) : RecyclerView.ViewHolder(binding.root)
 }

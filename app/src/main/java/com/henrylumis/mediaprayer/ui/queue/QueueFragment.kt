@@ -6,10 +6,10 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.fragment.app.Fragment
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.databinding.FragmentQueueBinding
 
@@ -20,6 +20,14 @@ class QueueFragment : Fragment() {
     private lateinit var adapter: QueueAdapter
     private val handler = Handler(Looper.getMainLooper())
     private var refreshRunnable: Runnable? = null
+
+    // Drag state: only ONE move command is ever sent to the player, exactly
+    // when the finger lifts -- not on every row crossed during the drag.
+    // Sending a command per-row (the old behavior) flooded the session with
+    // async moves that could resolve out of order, which is what caused
+    // dragging to visually "snap back" after jumping a couple of songs.
+    private var isDragging = false
+    private var dragStartPosition = -1
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -38,7 +46,7 @@ class QueueFragment : Fragment() {
                 activity.removeQueueItem(position)
                 refreshQueue()
             },
-            onMove = { from, to -> activity.moveQueueItem(from, to) }
+            onMove = { _, _ -> } // no longer used per-step; see clearView below
         )
         binding.queueList.layoutManager = LinearLayoutManager(requireContext())
         binding.queueList.adapter = adapter
@@ -51,11 +59,35 @@ class QueueFragment : Fragment() {
                 viewHolder: RecyclerView.ViewHolder,
                 target: RecyclerView.ViewHolder
             ): Boolean {
+                // Purely a local, optimistic visual reorder -- cheap and instant,
+                // no player/session calls happen here.
                 val from = viewHolder.bindingAdapterPosition
                 val to = target.bindingAdapterPosition
                 adapter.moveLocally(from, to)
-                adapter.onDragMoved(from, to)
                 return true
+            }
+
+            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+                super.onSelectedChanged(viewHolder, actionState)
+                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder != null) {
+                    isDragging = true
+                    dragStartPosition = viewHolder.bindingAdapterPosition
+                }
+            }
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                if (isDragging) {
+                    val finalPosition = viewHolder.bindingAdapterPosition
+                    if (dragStartPosition != -1 && finalPosition != -1 && finalPosition != dragStartPosition) {
+                        activity.moveQueueItem(dragStartPosition, finalPosition)
+                    }
+                    isDragging = false
+                    dragStartPosition = -1
+                    // Give the session a moment to apply the move, then resync
+                    // with the authoritative queue order.
+                    handler.postDelayed({ refreshQueue() }, 300)
+                }
             }
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
@@ -68,10 +100,11 @@ class QueueFragment : Fragment() {
 
     private fun startAutoRefresh() {
         // Picks up track transitions (e.g. auto-advance to next song) so the
-        // highlighted "now playing" row in the queue stays accurate.
+        // highlighted "now playing" row in the queue stays accurate. Skipped
+        // entirely while a drag is in progress so it can't overwrite it mid-gesture.
         refreshRunnable = object : Runnable {
             override fun run() {
-                refreshQueue()
+                if (!isDragging) refreshQueue()
                 handler.postDelayed(this, 1500)
             }
         }

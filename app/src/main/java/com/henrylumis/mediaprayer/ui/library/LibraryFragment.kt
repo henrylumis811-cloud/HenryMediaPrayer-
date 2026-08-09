@@ -17,12 +17,14 @@ import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.data.MusicScanner
 import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.FragmentLibraryBinding
+import com.henrylumis.mediaprayer.trim.TrimmerDialog
 import com.henrylumis.mediaprayer.util.PlaylistStore
 import com.henrylumis.mediaprayer.util.Prefs
 import com.henrylumis.mediaprayer.util.RecentlyPlayedStore
 import com.henrylumis.mediaprayer.util.ListeningStatsStore
 import kotlinx.coroutines.launch
 
+@androidx.media3.common.util.UnstableApi
 class LibraryFragment : Fragment() {
 
     private var _binding: FragmentLibraryBinding? = null
@@ -35,6 +37,7 @@ class LibraryFragment : Fragment() {
     private var favoritesOnly: Boolean = false
     private val handler = Handler(Looper.getMainLooper())
     private var nowPlayingRunnable: Runnable? = null
+    private var searchDebounceRunnable: Runnable? = null
 
     private enum class SortMode(val label: String) {
         TITLE_ASC("Title (A-Z)"),
@@ -61,13 +64,16 @@ class LibraryFragment : Fragment() {
             ?.let { saved -> SortMode.values().find { it.name == saved } }
             ?: SortMode.TITLE_ASC
 
-        adapter = SongAdapter { song, _ ->
-            // Play starting from this song's position within the currently
-            // displayed (filtered + sorted) list, so what you tap is what plays first.
-            val displayed = adapter.currentList()
-            val startIndex = displayed.indexOf(song).coerceAtLeast(0)
-            (activity as? MainActivity)?.playQueue(displayed, startIndex)
-        }
+        adapter = SongAdapter(
+            onClick = { song, _ ->
+                // Play starting from this song's position within the currently
+                // displayed (filtered + sorted) list, so what you tap is what plays first.
+                val displayed = adapter.currentList()
+                val startIndex = displayed.indexOf(song).coerceAtLeast(0)
+                (activity as? MainActivity)?.playQueue(displayed, startIndex)
+            },
+            onLongClick = { song -> TrimmerDialog.show(requireContext(), song) }
+        )
         binding.songList.layoutManager = LinearLayoutManager(requireContext())
         binding.songList.adapter = adapter
 
@@ -77,7 +83,9 @@ class LibraryFragment : Fragment() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 searchQuery = s?.toString().orEmpty()
-                applyFilterAndSort()
+                searchDebounceRunnable?.let { handler.removeCallbacks(it) }
+                searchDebounceRunnable = Runnable { applyFilterAndSort() }
+                handler.postDelayed(searchDebounceRunnable!!, 200)
             }
             override fun afterTextChanged(s: Editable?) {}
         })
@@ -181,6 +189,7 @@ class LibraryFragment : Fragment() {
 
     override fun onDestroyView() {
         nowPlayingRunnable?.let { handler.removeCallbacks(it) }
+        searchDebounceRunnable?.let { handler.removeCallbacks(it) }
         super.onDestroyView()
         _binding = null
     }

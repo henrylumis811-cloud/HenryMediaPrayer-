@@ -109,6 +109,7 @@ class PlaybackService : MediaSessionService() {
                 mediaItem?.mediaId?.let { RecentlyPlayedStore.addPlayed(applicationContext, it) }
                 applyNormalizationForCurrentTrack(mediaItem)
                 resetStatsTrackingForNewTrack(mediaItem)
+                applyDeclickFade()
                 savePlaybackState()
             }
         })
@@ -142,6 +143,32 @@ class PlaybackService : MediaSessionService() {
     // default. Crossfade (below) is an optional, separate, opt-in effect on
     // top of that for a more deliberate DJ-style blend.
 
+    // --- Anti-click / anti-hiss transition smoothing ---
+    // Some devices produce a brief audible artifact (a short hiss/click) right
+    // at the moment a new track's decoder starts, especially between tracks
+    // with different sample rates or codecs -- this is a known ExoPlayer/HAL-
+    // level quirk, not something a pure app-level fix can eliminate outright.
+    // A short fade-in on every transition reliably masks it. Skipped when
+    // crossfade already handled this transition's volume itself.
+    private val declickHandler = Handler(Looper.getMainLooper())
+
+    private fun applyDeclickFade() {
+        if (Prefs.isCrossfadeEnabled(applicationContext)) return // crossfade already manages volume smoothly
+        declickHandler.removeCallbacksAndMessages(null)
+        val steps = 8
+        val stepDelayMs = 12L
+        var step = 0
+        player.volume = 0f
+        val ramp = object : Runnable {
+            override fun run() {
+                step++
+                player.volume = (step.toFloat() / steps).coerceIn(0f, 1f)
+                if (step < steps) declickHandler.postDelayed(this, stepDelayMs)
+            }
+        }
+        declickHandler.postDelayed(ramp, stepDelayMs)
+    }
+
     // --- Crossfade ---
 
     private fun startCrossfadeWatcher() {
@@ -159,6 +186,70 @@ class PlaybackService : MediaSessionService() {
             }
         }
         crossfadeWatcherHandler.postDelayed(runnable, 500)
+    }
+
+    /** Skip to the next track, crossfading if enabled instead of an abrupt cut. */
+    fun crossfadeSkipNext() {
+        val currentIndex = player.currentMediaItemIndex
+        val nextIndex = currentIndex + 1
+        if (!Prefs.isCrossfadeEnabled(applicationContext) || nextIndex >= player.mediaItemCount) {
+            player.seekToNextMediaItem()
+            return
+        }
+        val target = try { player.getMediaItemAt(nextIndex) } catch (e: Exception) { null }
+        if (target == null) { player.seekToNextMediaItem(); return }
+        val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
+        crossfade?.crossfadeToTarget(player, target, durationMs) { player.seekToNextMediaItem() }
+    }
+
+    /** Skip to the previous track, crossfading if enabled instead of an abrupt cut. */
+    fun crossfadeSkipPrevious() {
+        val currentIndex = player.currentMediaItemIndex
+        val prevIndex = currentIndex - 1
+        if (!Prefs.isCrossfadeEnabled(applicationContext) || prevIndex < 0) {
+            player.seekToPreviousMediaItem()
+            return
+        }
+        val target = try { player.getMediaItemAt(prevIndex) } catch (e: Exception) { null }
+        if (target == null) { player.seekToPreviousMediaItem(); return }
+        val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
+        crossfade?.crossfadeToTarget(player, target, durationMs) { player.seekToPreviousMediaItem() }
+    }
+
+    /** Replace the whole queue and play a specific song, crossfading if enabled
+     *  (used when picking a song from Library, which builds a fresh queue). */
+    fun crossfadePlayQueue(items: List<MediaItem>, startIndex: Int) {
+        if (items.isEmpty()) return
+        val target = items.getOrNull(startIndex)
+        if (!Prefs.isCrossfadeEnabled(applicationContext) || target == null) {
+            player.setMediaItems(items, startIndex, 0L)
+            player.prepare()
+            player.play()
+            return
+        }
+        val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
+        crossfade?.crossfadeToTarget(player, target, durationMs) {
+            player.setMediaItems(items, startIndex, 0L)
+            player.prepare()
+            player.play()
+        }
+    }
+
+    /** Jump to a specific index within the CURRENT queue, crossfading if enabled
+     *  (used when tapping a song directly in the Queue tab). */
+    fun crossfadePlayQueueIndex(index: Int) {
+        if (!Prefs.isCrossfadeEnabled(applicationContext)) {
+            player.seekTo(index, 0L)
+            player.play()
+            return
+        }
+        val target = try { player.getMediaItemAt(index) } catch (e: Exception) { null }
+        if (target == null) { player.seekTo(index, 0L); player.play(); return }
+        val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
+        crossfade?.crossfadeToTarget(player, target, durationMs) {
+            player.seekTo(index, 0L)
+            player.play()
+        }
     }
 
     // --- Volume normalization (ReplayGain) ---
@@ -323,6 +414,7 @@ class PlaybackService : MediaSessionService() {
         savePlaybackState()
         stateSaveHandler.removeCallbacksAndMessages(null)
         crossfadeWatcherHandler.removeCallbacksAndMessages(null)
+        declickHandler.removeCallbacksAndMessages(null)
         crossfade?.release()
         serviceScope.cancel()
         sleepTimer.cancel()

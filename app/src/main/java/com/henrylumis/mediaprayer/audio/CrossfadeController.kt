@@ -4,24 +4,36 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 
 /**
- * Real dual-player volume crossfade between consecutive queue tracks.
+ * Real dual-player volume crossfade between tracks.
  *
  * The main player (owned by PlaybackService, wired to the MediaSession) is
  * NEVER swapped out -- that would risk destabilizing the notification/queue/
  * session state. Instead, a short-lived secondary ExoPlayer plays the
  * upcoming track quietly underneath the tail of the current one, their
- * volumes cross-fade, and the secondary player is torn down the instant the
- * main player naturally advances to that same track (which ExoPlayer does on
- * its own via gapless playback).
+ * volumes cross-fade.
  *
- * Known limitation: with shuffle mode on, the "next" track is guessed via
- * queue order rather than the actual shuffled order, so the preview lookup
- * can occasionally pick the wrong track. Playback itself is unaffected --
- * only the crossfade preview could rarely mismatch in that mode.
+ * Position continuity: whichever player the listener was actually hearing
+ * (the secondary, mid-fade) must hand off to the main player at the SAME
+ * position, or the track audibly "restarts" from 0 the instant main takes
+ * over. Every switch path below seeks main to the secondary's position
+ * before releasing it, specifically to prevent that.
+ *
+ * Two trigger paths:
+ *  - Auto-advance: the natural end-of-track approaches: we don't control
+ *    exactly when main itself transitions (ExoPlayer's own gapless engine
+ *    decides that), so we just align main's position the instant it happens.
+ *  - Manual (skip / tap a song): WE control the timing -- the ramp completes,
+ *    THEN we perform the actual seek/queue change, THEN align position.
+ *
+ * Known limitation: with shuffle mode on, the "next" track for auto-advance
+ * crossfade is guessed via queue order rather than the actual shuffled
+ * order, so that specific preview can occasionally pick the wrong track.
+ * Manual crossfade (skip/tap) is unaffected since the target is explicit.
  */
 class CrossfadeController(
     private val context: Context,
@@ -31,6 +43,8 @@ class CrossfadeController(
     private var isCrossfading = false
     private val handler = Handler(Looper.getMainLooper())
     private var fadeRunnable: Runnable? = null
+
+    // --- Auto-advance path ---
 
     fun maybeStartCrossfade(mainPlayer: ExoPlayer, durationMs: Long) {
         if (isCrossfading || durationMs <= 0) return
@@ -42,48 +56,102 @@ class CrossfadeController(
             else -> -1
         }
         if (nextIndex == -1) return
-
         try {
-            val nextItem = mainPlayer.getMediaItemAt(nextIndex)
-            isCrossfading = true
-
-            val secondary = ExoPlayer.Builder(context).build()
-            secondary.setAudioAttributes(audioAttributes, false)
-            secondary.setMediaItem(nextItem)
-            secondary.prepare()
-            secondary.volume = 0f
-            secondary.play()
-            secondaryPlayer = secondary
-
-            val steps = 24
-            val stepDelay = (durationMs / steps).coerceAtLeast(20)
-            var stepCount = 0
-            fadeRunnable = object : Runnable {
-                override fun run() {
-                    stepCount++
-                    val t = (stepCount.toFloat() / steps).coerceIn(0f, 1f)
-                    try {
-                        mainPlayer.volume = 1f - t
-                        secondary.volume = t
-                    } catch (_: Exception) {
-                    }
-                    if (stepCount < steps && isCrossfading) handler.postDelayed(this, stepDelay)
-                }
-            }
-            handler.post(fadeRunnable!!)
+            startFade(mainPlayer, mainPlayer.getMediaItemAt(nextIndex), durationMs, onRampComplete = null)
         } catch (_: Exception) {
             isCrossfading = false
             cleanupSecondary()
         }
     }
 
-    /** Call this from the main player's onMediaItemTransition -- crossfade is done either way. */
+    /** Call this from the main player's onMediaItemTransition -- crossfade is done either way,
+     *  since main has now (on its own) moved to the next track. */
     fun onTrackTransitioned(mainPlayer: ExoPlayer) {
         fadeRunnable?.let { handler.removeCallbacks(it) }
         fadeRunnable = null
-        try { mainPlayer.volume = 1f } catch (_: Exception) {}
+        val secondaryPosition = secondaryPlayer?.currentPosition ?: 0L
+        try {
+            // Pick up exactly where the secondary (what was actually audible)
+            // left off, instead of main's own fresh position-0 start.
+            if (secondaryPosition > 0) mainPlayer.seekTo(secondaryPosition)
+            mainPlayer.volume = 1f
+        } catch (_: Exception) {
+        }
         cleanupSecondary()
         isCrossfading = false
+    }
+
+    // --- Manual path (skip next/previous, or tapping a specific song) ---
+
+    /**
+     * Crossfades into [targetItem], then calls [onReadyToSwitch] to actually
+     * perform the real seek/queue change on the main player once the fade
+     * completes, then aligns main's position to match what was just heard.
+     */
+    fun crossfadeToTarget(
+        mainPlayer: ExoPlayer,
+        targetItem: MediaItem,
+        durationMs: Long,
+        onReadyToSwitch: () -> Unit
+    ) {
+        if (isCrossfading || durationMs <= 0) {
+            onReadyToSwitch()
+            return
+        }
+        try {
+            startFade(mainPlayer, targetItem, durationMs, onRampComplete = { secondaryPosition ->
+                onReadyToSwitch()
+                try {
+                    if (secondaryPosition > 0) mainPlayer.seekTo(secondaryPosition)
+                    mainPlayer.volume = 1f
+                } catch (_: Exception) {
+                }
+            })
+        } catch (_: Exception) {
+            isCrossfading = false
+            cleanupSecondary()
+            onReadyToSwitch()
+        }
+    }
+
+    private fun startFade(
+        mainPlayer: ExoPlayer,
+        targetItem: MediaItem,
+        durationMs: Long,
+        onRampComplete: ((Long) -> Unit)?
+    ) {
+        isCrossfading = true
+        val secondary = ExoPlayer.Builder(context).build()
+        secondary.setAudioAttributes(audioAttributes, false)
+        secondary.setMediaItem(targetItem)
+        secondary.prepare()
+        secondary.volume = 0f
+        secondary.play()
+        secondaryPlayer = secondary
+
+        val steps = 24
+        val stepDelay = (durationMs / steps).coerceAtLeast(20)
+        var stepCount = 0
+        fadeRunnable = object : Runnable {
+            override fun run() {
+                stepCount++
+                val t = (stepCount.toFloat() / steps).coerceIn(0f, 1f)
+                try {
+                    mainPlayer.volume = 1f - t
+                    secondary.volume = t
+                } catch (_: Exception) {
+                }
+                if (stepCount < steps && isCrossfading) {
+                    handler.postDelayed(this, stepDelay)
+                } else if (onRampComplete != null && isCrossfading) {
+                    val pos = secondary.currentPosition
+                    onRampComplete(pos)
+                    cleanupSecondary()
+                    isCrossfading = false
+                }
+            }
+        }
+        handler.post(fadeRunnable!!)
     }
 
     private fun cleanupSecondary() {

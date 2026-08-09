@@ -158,7 +158,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Blends the tail of each track into the next, like a DJ mix, instead of an instant cut."
+                android:text="Blends the tail of each track into the next, like a DJ mix, instead of an instant cut. Also applies when you skip or pick a song manually."
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 

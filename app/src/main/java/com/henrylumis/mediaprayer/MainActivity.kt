@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun playQueue(songs: List<Song>, startIndex: Int) {
-        val controller = mediaController ?: return
+        if (mediaController == null) return
         val items = songs.map { song ->
             val extras = android.os.Bundle().apply {
                 song.dataPath?.let { putString("data_path", it) }
@@ -150,9 +150,18 @@ class MainActivity : AppCompatActivity() {
                 )
                 .build()
         }
-        controller.setMediaItems(items, startIndex, 0L)
-        controller.prepare()
-        controller.play()
+        // Routed through the service directly (not the remote controller) so
+        // manual song selection can crossfade too, same as auto-advance and skip.
+        val service = PlaybackService.instance
+        if (service != null) {
+            service.crossfadePlayQueue(items, startIndex)
+        } else {
+            mediaController?.apply {
+                setMediaItems(items, startIndex, 0L)
+                prepare()
+                play()
+            }
+        }
     }
 
     fun togglePlayPause() {
@@ -169,8 +178,13 @@ class MainActivity : AppCompatActivity() {
         if (controller.isPlaying) controller.pause() else controller.play()
     }
 
-    fun skipNext() { mediaController?.seekToNextMediaItem() }
-    fun skipPrevious() { mediaController?.seekToPreviousMediaItem() }
+    fun skipNext() {
+        PlaybackService.instance?.crossfadeSkipNext() ?: mediaController?.seekToNextMediaItem()
+    }
+
+    fun skipPrevious() {
+        PlaybackService.instance?.crossfadeSkipPrevious() ?: mediaController?.seekToPreviousMediaItem()
+    }
 
     // --- Queue management ---
 
@@ -190,9 +204,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun playQueueIndex(index: Int) {
-        mediaController?.apply {
-            seekTo(index, 0L)
-            play()
+        val service = PlaybackService.instance
+        if (service != null) {
+            service.crossfadePlayQueueIndex(index)
+        } else {
+            mediaController?.apply {
+                seekTo(index, 0L)
+                play()
+            }
         }
     }
 
