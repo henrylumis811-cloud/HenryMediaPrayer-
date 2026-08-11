@@ -173,6 +173,20 @@ class CrossfadeController(
     }
 
     private fun finalizeHandoff(mainPlayer: ExoPlayer) {
+        // The secondary player kept playing during the whole "wait for main
+        // to be ready" window, so it has moved past the position we
+        // originally sought main to. Nudge main forward to secondary's
+        // CURRENT (fresh, not stale) position right before the swap -- this
+        // is a small correction (typically well under a second) into content
+        // main has likely already buffered near, so it resolves fast without
+        // needing another full wait cycle.
+        try {
+            val freshSecondaryPos = secondaryPlayer?.currentPosition
+            if (freshSecondaryPos != null && freshSecondaryPos > 0) {
+                mainPlayer.seekTo(freshSecondaryPos)
+            }
+        } catch (_: Exception) {
+        }
         try { mainPlayer.volume = 1f } catch (_: Exception) {}
         cleanupSecondary()
         isCrossfading = false
