@@ -54,6 +54,13 @@ class PlaybackService : MediaSessionService() {
     var equalizer: EqualizerController? = null
         private set
 
+    /** The track a manual crossfade is currently fading INTO, before the real
+     *  switch has happened -- lets the UI (Altar/Queue) show the new track
+     *  instantly on tap, while the audio itself still fades in over the
+     *  configured crossfade duration underneath. Null when nothing's pending. */
+    var pendingCrossfadeTarget: MediaItem? = null
+        private set
+
     private var loudnessNormalizer: LoudnessNormalizer? = null
     private var crossfade: CrossfadeController? = null
 
@@ -199,7 +206,11 @@ class PlaybackService : MediaSessionService() {
         val target = try { player.getMediaItemAt(nextIndex) } catch (e: Exception) { null }
         if (target == null) { player.seekToNextMediaItem(); return }
         val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
-        crossfade?.crossfadeToTarget(player, target, durationMs) { player.seekToNextMediaItem() }
+        pendingCrossfadeTarget = target
+        crossfade?.crossfadeToTarget(player, target, durationMs) {
+            player.seekToNextMediaItem()
+            pendingCrossfadeTarget = null
+        }
     }
 
     /** Skip to the previous track, crossfading if enabled instead of an abrupt cut. */
@@ -213,7 +224,11 @@ class PlaybackService : MediaSessionService() {
         val target = try { player.getMediaItemAt(prevIndex) } catch (e: Exception) { null }
         if (target == null) { player.seekToPreviousMediaItem(); return }
         val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
-        crossfade?.crossfadeToTarget(player, target, durationMs) { player.seekToPreviousMediaItem() }
+        pendingCrossfadeTarget = target
+        crossfade?.crossfadeToTarget(player, target, durationMs) {
+            player.seekToPreviousMediaItem()
+            pendingCrossfadeTarget = null
+        }
     }
 
     /** Replace the whole queue and play a specific song, crossfading if enabled
@@ -228,10 +243,12 @@ class PlaybackService : MediaSessionService() {
             return
         }
         val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
+        pendingCrossfadeTarget = target
         crossfade?.crossfadeToTarget(player, target, durationMs) {
             player.setMediaItems(items, startIndex, 0L)
             player.prepare()
             player.play()
+            pendingCrossfadeTarget = null
         }
     }
 
@@ -246,9 +263,11 @@ class PlaybackService : MediaSessionService() {
         val target = try { player.getMediaItemAt(index) } catch (e: Exception) { null }
         if (target == null) { player.seekTo(index, 0L); player.play(); return }
         val durationMs = Prefs.getCrossfadeSeconds(applicationContext) * 1000L
+        pendingCrossfadeTarget = target
         crossfade?.crossfadeToTarget(player, target, durationMs) {
             player.seekTo(index, 0L)
             player.play()
+            pendingCrossfadeTarget = null
         }
     }
 

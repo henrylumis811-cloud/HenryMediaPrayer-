@@ -38,6 +38,12 @@ class MainActivity : AppCompatActivity() {
 
     val equalizer get() = PlaybackService.instance?.equalizer
 
+    /** The track a manual crossfade is fading toward but hasn't actually
+     *  switched to yet -- UI screens should prefer this over player.currentMediaItem
+     *  when non-null, so tapping Next/a song feels instant even though the
+     *  audio itself is still fading in underneath. */
+    val pendingTrack: MediaItem? get() = PlaybackService.instance?.pendingCrossfadeTarget
+
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> /* LibraryFragment re-scans itself when it becomes visible / on refresh */ }

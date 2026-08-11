@@ -20,8 +20,14 @@ import androidx.media3.exoplayer.ExoPlayer
  * Position continuity: whichever player the listener was actually hearing
  * (the secondary, mid-fade) must hand off to the main player at the SAME
  * position, or the track audibly "restarts" from 0 the instant main takes
- * over. Every switch path below seeks main to the secondary's position
- * before releasing it, specifically to prevent that.
+ * over. But a raw seekTo() on main isn't enough by itself -- even for local
+ * files, ExoPlayer briefly flushes/re-syncs its decoder on a seek, which is
+ * audible as a short silence/glitch if main is already the audible player at
+ * that moment. So every handoff below forces main silent *before* seeking it,
+ * and keeps the secondary player (untouched, still playing normally) as the
+ * only audible source until main reports STATE_READY at the new position --
+ * only then do we swap audibility and release the secondary. The gap in
+ * main's playback happens entirely while main is inaudible.
  *
  * Two trigger paths:
  *  - Auto-advance: the natural end-of-track approaches: we don't control
@@ -43,6 +49,7 @@ class CrossfadeController(
     private var isCrossfading = false
     private val handler = Handler(Looper.getMainLooper())
     private var fadeRunnable: Runnable? = null
+    private var readyTimeoutRunnable: Runnable? = null
 
     // --- Auto-advance path ---
 
@@ -70,15 +77,27 @@ class CrossfadeController(
         fadeRunnable?.let { handler.removeCallbacks(it) }
         fadeRunnable = null
         val secondaryPosition = secondaryPlayer?.currentPosition ?: 0L
-        try {
-            // Pick up exactly where the secondary (what was actually audible)
-            // left off, instead of main's own fresh position-0 start.
-            if (secondaryPosition > 0) mainPlayer.seekTo(secondaryPosition)
-            mainPlayer.volume = 1f
-        } catch (_: Exception) {
+
+        if (secondaryPosition <= 0) {
+            try { mainPlayer.volume = 1f } catch (_: Exception) {}
+            cleanupSecondary()
+            isCrossfading = false
+            return
         }
-        cleanupSecondary()
-        isCrossfading = false
+
+        try {
+            // Force silent immediately (regardless of exactly where the ramp
+            // had gotten to) so the upcoming seek's brief internal re-buffer
+            // is never audible from main's side -- the secondary player (still
+            // playing normally, untouched) is what carries the sound through it.
+            mainPlayer.volume = 0f
+            mainPlayer.seekTo(secondaryPosition)
+            waitForMainReadyThenFinalize(mainPlayer)
+        } catch (_: Exception) {
+            try { mainPlayer.volume = 1f } catch (_: Exception) {}
+            cleanupSecondary()
+            isCrossfading = false
+        }
     }
 
     // --- Manual path (skip next/previous, or tapping a specific song) ---
@@ -102,9 +121,19 @@ class CrossfadeController(
             startFade(mainPlayer, targetItem, durationMs, onRampComplete = { secondaryPosition ->
                 onReadyToSwitch()
                 try {
-                    if (secondaryPosition > 0) mainPlayer.seekTo(secondaryPosition)
-                    mainPlayer.volume = 1f
+                    if (secondaryPosition > 0) {
+                        mainPlayer.volume = 0f
+                        mainPlayer.seekTo(secondaryPosition)
+                        waitForMainReadyThenFinalize(mainPlayer)
+                    } else {
+                        mainPlayer.volume = 1f
+                        cleanupSecondary()
+                        isCrossfading = false
+                    }
                 } catch (_: Exception) {
+                    try { mainPlayer.volume = 1f } catch (_: Exception) {}
+                    cleanupSecondary()
+                    isCrossfading = false
                 }
             })
         } catch (_: Exception) {
@@ -112,6 +141,41 @@ class CrossfadeController(
             cleanupSecondary()
             onReadyToSwitch()
         }
+    }
+
+    /** Keeps the secondary player as the audible source until main confirms
+     *  it has actually finished re-syncing to the target position (STATE_READY),
+     *  then does a silent-to-silent handoff -- main was inaudible (volume 0)
+     *  the whole time it was buffering, so nothing is ever heard glitching. */
+    private fun waitForMainReadyThenFinalize(mainPlayer: ExoPlayer) {
+        if (mainPlayer.playbackState == Player.STATE_READY) {
+            finalizeHandoff(mainPlayer)
+            return
+        }
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY) {
+                    mainPlayer.removeListener(this)
+                    readyTimeoutRunnable?.let { handler.removeCallbacks(it) }
+                    finalizeHandoff(mainPlayer)
+                }
+            }
+        }
+        mainPlayer.addListener(listener)
+        // Safety net: if READY somehow never fires promptly, finalize anyway
+        // after a short timeout rather than leaving main silent indefinitely.
+        val timeout = Runnable {
+            mainPlayer.removeListener(listener)
+            finalizeHandoff(mainPlayer)
+        }
+        readyTimeoutRunnable = timeout
+        handler.postDelayed(timeout, 4000)
+    }
+
+    private fun finalizeHandoff(mainPlayer: ExoPlayer) {
+        try { mainPlayer.volume = 1f } catch (_: Exception) {}
+        cleanupSecondary()
+        isCrossfading = false
     }
 
     private fun startFade(
@@ -145,9 +209,11 @@ class CrossfadeController(
                     handler.postDelayed(this, stepDelay)
                 } else if (onRampComplete != null && isCrossfading) {
                     val pos = secondary.currentPosition
+                    // Cleanup/isCrossfading reset is now owned by whatever
+                    // onRampComplete does (e.g. waitForMainReadyThenFinalize) --
+                    // releasing secondary here too would kill the very player
+                    // that's supposed to bridge the gap while main re-syncs.
                     onRampComplete(pos)
-                    cleanupSecondary()
-                    isCrossfading = false
                 }
             }
         }

@@ -115,7 +115,15 @@ class QueueFragment : Fragment() {
         val activity = activity as? MainActivity ?: return
         if (_binding == null) return
         val queue = activity.getQueue()
-        adapter.submitList(queue, activity.currentQueueIndex())
+        // If a manual crossfade is currently fading toward a track, highlight
+        // that one instantly instead of waiting for the real switch to land.
+        val pendingId = activity.pendingTrack?.mediaId
+        val highlightIndex = if (pendingId != null) {
+            queue.indexOfFirst { it.mediaId == pendingId }.let { if (it >= 0) it else activity.currentQueueIndex() }
+        } else {
+            activity.currentQueueIndex()
+        }
+        adapter.submitList(queue, highlightIndex)
         binding.queueEmptyState.visibility = if (queue.isEmpty()) View.VISIBLE else View.GONE
     }
 

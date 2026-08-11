@@ -57,8 +57,14 @@ class AltarFragment : Fragment() {
         val activity = activity as? MainActivity ?: return
 
         binding.btnPlayPause.setOnClickListener { activity.togglePlayPause() }
-        binding.btnNext.setOnClickListener { activity.skipNext() }
-        binding.btnPrev.setOnClickListener { activity.skipPrevious() }
+        binding.btnNext.setOnClickListener {
+            activity.skipNext()
+            updateNowPlaying() // instant visual change; audio itself fades in underneath
+        }
+        binding.btnPrev.setOnClickListener {
+            activity.skipPrevious()
+            updateNowPlaying()
+        }
 
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {}
@@ -258,7 +264,10 @@ class AltarFragment : Fragment() {
 
     private fun updateNowPlaying() {
         val activity = activity as? MainActivity ?: return
-        val item = activity.player?.currentMediaItem
+        // Prefer the crossfade-pending track (if a manual skip/select is currently
+        // fading in) so the screen updates the instant you tap, not several
+        // seconds later when the audio handoff actually completes.
+        val item = activity.pendingTrack ?: activity.player?.currentMediaItem
         binding.trackTitle.text = item?.mediaMetadata?.title?.toString() ?: "Nothing playing"
         binding.trackArtist.text = item?.mediaMetadata?.artist?.toString() ?: "Open Library to pick a song"
         updateFavoriteButton(item?.mediaId?.let { PlaylistStore.isFavorite(requireContext(), it) } ?: false)
@@ -324,11 +333,28 @@ class AltarFragment : Fragment() {
     }
 
     private fun startProgressUpdates() {
+        var lastPendingState = false
         progressRunnable = object : Runnable {
             override fun run() {
-                val player = (activity as? MainActivity)?.player
+                val activity = activity as? MainActivity
+                val player = activity?.player
+                val isPending = activity?.pendingTrack != null
+
+                // Catch pending-track changes triggered from Library/Queue (not just
+                // the buttons on this screen) within one tick.
+                if (isPending != lastPendingState) {
+                    lastPendingState = isPending
+                    updateNowPlaying()
+                }
+
                 if (player != null && _binding != null) {
-                    if (player.duration > 0) {
+                    if (isPending) {
+                        // Audio is still fading in underneath -- show the new
+                        // track "at the start" rather than the outgoing track's
+                        // real (soon-to-be-irrelevant) position.
+                        binding.seekBar.progress = 0
+                        binding.timeReadout.text = "0:00 / --:--"
+                    } else if (player.duration > 0) {
                         val pos = player.currentPosition.coerceAtLeast(0)
                         val dur = player.duration.coerceAtLeast(1)
                         binding.seekBar.max = dur.toInt()
