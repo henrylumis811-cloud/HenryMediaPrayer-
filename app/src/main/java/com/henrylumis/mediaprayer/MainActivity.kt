@@ -22,8 +22,16 @@ import com.henrylumis.mediaprayer.data.Song
 import com.henrylumis.mediaprayer.databinding.ActivityMainBinding
 import com.henrylumis.mediaprayer.ui.PagerAdapter
 import com.henrylumis.mediaprayer.util.Prefs
+import com.henrylumis.mediaprayer.util.RecentlyPlayedStore
 import kotlinx.coroutines.launch
 
+/**
+ * Playback here is bound to PlaybackService's DualPlayerBridge (not a raw
+ * ExoPlayer directly), so every standard MediaController command below --
+ * play/pause, seekToNextMediaItem, setMediaItems, moveMediaItem, etc. --
+ * automatically gets gapless/crossfaded handling for free. No special
+ * per-action routing is needed here anymore.
+ */
 @UnstableApi
 class MainActivity : AppCompatActivity() {
 
@@ -38,8 +46,8 @@ class MainActivity : AppCompatActivity() {
 
     val equalizer get() = PlaybackService.instance?.equalizer
 
-    /** The track a manual crossfade is fading toward but hasn't actually
-     *  switched to yet -- UI screens should prefer this over player.currentMediaItem
+    /** The track a crossfade is currently fading toward but hasn't actually
+     *  switched to yet -- UI screens prefer this over player.currentMediaItem
      *  when non-null, so tapping Next/a song feels instant even though the
      *  audio itself is still fading in underneath. */
     val pendingTrack: MediaItem? get() = PlaybackService.instance?.pendingCrossfadeTarget
@@ -129,16 +137,14 @@ class MainActivity : AppCompatActivity() {
             mediaController = controllerFuture.get()
             mediaController?.addListener(object : Player.Listener {
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    mediaItem?.mediaId?.let {
-                        com.henrylumis.mediaprayer.util.RecentlyPlayedStore.addPlayed(this@MainActivity, it)
-                    }
+                    mediaItem?.mediaId?.let { RecentlyPlayedStore.addPlayed(this@MainActivity, it) }
                 }
             })
         }, MoreExecutors.directExecutor())
     }
 
     fun playQueue(songs: List<Song>, startIndex: Int) {
-        if (mediaController == null) return
+        val controller = mediaController ?: return
         val items = songs.map { song ->
             val extras = android.os.Bundle().apply {
                 song.dataPath?.let { putString("data_path", it) }
@@ -156,18 +162,9 @@ class MainActivity : AppCompatActivity() {
                 )
                 .build()
         }
-        // Routed through the service directly (not the remote controller) so
-        // manual song selection can crossfade too, same as auto-advance and skip.
-        val service = PlaybackService.instance
-        if (service != null) {
-            service.crossfadePlayQueue(items, startIndex)
-        } else {
-            mediaController?.apply {
-                setMediaItems(items, startIndex, 0L)
-                prepare()
-                play()
-            }
-        }
+        controller.setMediaItems(items, startIndex, 0L)
+        controller.prepare()
+        controller.play()
     }
 
     fun togglePlayPause() {
@@ -184,13 +181,8 @@ class MainActivity : AppCompatActivity() {
         if (controller.isPlaying) controller.pause() else controller.play()
     }
 
-    fun skipNext() {
-        PlaybackService.instance?.crossfadeSkipNext() ?: mediaController?.seekToNextMediaItem()
-    }
-
-    fun skipPrevious() {
-        PlaybackService.instance?.crossfadeSkipPrevious() ?: mediaController?.seekToPreviousMediaItem()
-    }
+    fun skipNext() { mediaController?.seekToNextMediaItem() }
+    fun skipPrevious() { mediaController?.seekToPreviousMediaItem() }
 
     // --- Queue management ---
 
@@ -210,14 +202,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun playQueueIndex(index: Int) {
-        val service = PlaybackService.instance
-        if (service != null) {
-            service.crossfadePlayQueueIndex(index)
-        } else {
-            mediaController?.apply {
-                seekTo(index, 0L)
-                play()
-            }
+        mediaController?.apply {
+            seekTo(index, 0L)
+            play()
         }
     }
 
