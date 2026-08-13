@@ -196,6 +196,7 @@ class PlaybackService : MediaSessionService() {
         try {
             val extras = android.os.Bundle().apply {
                 saved.dataPath?.let { putString("data_path", it) }
+                if (saved.durationMs > 0) putLong("duration_ms", saved.durationMs)
             }
             val item = MediaItem.Builder()
                 .setUri(saved.uri)
@@ -227,7 +228,8 @@ class PlaybackService : MediaSessionService() {
                 artist = item.mediaMetadata.artist?.toString() ?: "",
                 album = item.mediaMetadata.albumTitle?.toString() ?: "",
                 positionMs = bridge.currentPosition,
-                dataPath = item.mediaMetadata.extras?.getString("data_path")
+                dataPath = item.mediaMetadata.extras?.getString("data_path"),
+                durationMs = item.mediaMetadata.extras?.getLong("duration_ms") ?: 0L
             )
         )
     }

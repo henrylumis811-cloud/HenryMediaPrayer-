@@ -148,6 +148,7 @@ class MainActivity : AppCompatActivity() {
         val items = songs.map { song ->
             val extras = android.os.Bundle().apply {
                 song.dataPath?.let { putString("data_path", it) }
+                putLong("duration_ms", song.durationMs)
             }
             MediaItem.Builder()
                 .setUri(song.uriString)

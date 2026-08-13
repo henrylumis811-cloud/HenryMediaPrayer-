@@ -9,7 +9,8 @@ data class SavedPlayback(
     val artist: String,
     val album: String,
     val positionMs: Long,
-    val dataPath: String? = null
+    val dataPath: String? = null,
+    val durationMs: Long = 0L
 )
 
 /**
@@ -30,6 +31,7 @@ object PlaybackStateStore {
             .putString("album", state.album)
             .putLong("position_ms", state.positionMs)
             .putString("data_path", state.dataPath)
+            .putLong("duration_ms", state.durationMs)
             .apply()
     }
 
@@ -44,7 +46,8 @@ object PlaybackStateStore {
             artist = prefs.getString("artist", "") ?: "",
             album = prefs.getString("album", "") ?: "",
             positionMs = prefs.getLong("position_ms", 0L),
-            dataPath = prefs.getString("data_path", null)
+            dataPath = prefs.getString("data_path", null),
+            durationMs = prefs.getLong("duration_ms", 0L)
         )
     }
 }
