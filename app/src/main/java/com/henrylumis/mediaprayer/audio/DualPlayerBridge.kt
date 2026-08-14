@@ -374,16 +374,19 @@ class DualPlayerBridge(
             if (playWhenReady) active().play() else active().pause()
         } catch (_: Exception) {
         }
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
     override fun handlePrepare(): ListenableFuture<*> {
         try { active().prepare() } catch (_: Exception) {}
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
     override fun handleStop(): ListenableFuture<*> {
         try { active().stop() } catch (_: Exception) {}
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
@@ -391,13 +394,18 @@ class DualPlayerBridge(
         if (mediaItemIndex != currentIndex && mediaItemIndex in queue.indices) {
             crossfadeToIndex(mediaItemIndex)
         } else {
-            try { active().seekTo(positionMs) } catch (_: Exception) {}
+            try {
+                active().seekTo(positionMs)
+            } catch (_: Exception) {
+            }
         }
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
     override fun handleSetRepeatMode(repeatMode: Int): ListenableFuture<*> {
         try { playerA.repeatMode = repeatMode; playerB.repeatMode = repeatMode } catch (_: Exception) {}
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
@@ -407,6 +415,7 @@ class DualPlayerBridge(
             playerB.shuffleModeEnabled = shuffleModeEnabled
         } catch (_: Exception) {
         }
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
@@ -416,6 +425,7 @@ class DualPlayerBridge(
         startPositionMs: Long
     ): ListenableFuture<*> {
         setQueue(mediaItems, if (startIndex == C.INDEX_UNSET) 0 else startIndex)
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
@@ -425,6 +435,7 @@ class DualPlayerBridge(
         if (toIndex - fromIndex == 1) {
             moveItem(fromIndex, newIndex)
         }
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
@@ -433,6 +444,7 @@ class DualPlayerBridge(
         for (i in (toIndex - 1) downTo fromIndex) {
             removeItem(i)
         }
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 
@@ -442,6 +454,7 @@ class DualPlayerBridge(
             playerB.playbackParameters = playbackParameters
         } catch (_: Exception) {
         }
+        invalidateState()
         return Futures.immediateVoidFuture()
     }
 }
