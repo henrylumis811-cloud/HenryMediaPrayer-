@@ -71,7 +71,7 @@ class AltarFragment : Fragment() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) { userIsDraggingSeek = true }
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
                 userIsDraggingSeek = false
-                activity.player?.seekTo(seekBar?.progress?.toLong() ?: 0L)
+                activity.seekTo(seekBar?.progress?.toLong() ?: 0L)
             }
         })
 

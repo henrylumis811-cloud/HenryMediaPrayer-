@@ -62,6 +62,14 @@ class PlaybackService : MediaSessionService() {
      *  actually landed -- lets the UI show the new track instantly on tap. */
     val pendingCrossfadeTarget: MediaItem? get() = bridge.pendingTarget
 
+    /** Direct, same-process seek -- bypasses the MediaController/Session IPC
+     *  layer entirely for reliability (dragging the Altar seek bar was landing
+     *  on the session but not visibly taking effect, most likely a command-
+     *  availability propagation timing issue over that layer). */
+    fun seekToPosition(positionMs: Long) {
+        try { bridge.seekTo(positionMs) } catch (_: Exception) {}
+    }
+
     private var loudnessNormalizer: LoudnessNormalizer? = null
 
     // --- Listening stats tracking state ---

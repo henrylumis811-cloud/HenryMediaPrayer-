@@ -52,6 +52,14 @@ class MainActivity : AppCompatActivity() {
      *  audio itself is still fading in underneath. */
     val pendingTrack: MediaItem? get() = PlaybackService.instance?.pendingCrossfadeTarget
 
+    /** Direct seek -- see PlaybackService.seekToPosition for why this bypasses
+     *  the normal MediaController path. */
+    fun seekTo(positionMs: Long) {
+        val service = PlaybackService.instance
+        if (service != null) service.seekToPosition(positionMs)
+        else mediaController?.seekTo(positionMs)
+    }
+
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> /* LibraryFragment re-scans itself when it becomes visible / on refresh */ }
