@@ -81,9 +81,28 @@ class MainActivity : AppCompatActivity() {
         binding.viewPager.adapter = PagerAdapter(this)
         binding.viewPager.offscreenPageLimit = 3
         val tabTitles = listOf("Altar", "Library", "Queue", "Verses", "Signal")
+        val tabIcons = listOf(
+            android.R.drawable.ic_media_play,
+            android.R.drawable.ic_menu_agenda,
+            android.R.drawable.ic_menu_sort_by_size,
+            android.R.drawable.ic_menu_edit,
+            android.R.drawable.ic_menu_preferences
+        )
+        val headerLabels = listOf("NOW PLAYING", "LIBRARY", "QUEUE", "VERSES", "SIGNAL")
         TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
             tab.text = tabTitles[position]
+            tab.setIcon(tabIcons[position])
         }.attach()
+
+        binding.viewPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                binding.headerTitle.text = headerLabels.getOrElse(position) { "NOW PLAYING" }
+            }
+        })
+
+        binding.btnHeaderSearch.setOnClickListener {
+            binding.viewPager.currentItem = 1 // Library tab
+        }
 
         applyBackground()
         requestNeededPermissions()

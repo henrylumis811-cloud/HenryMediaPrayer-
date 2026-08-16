@@ -25,34 +25,68 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <TextView
+        <!-- Header: avatar + screen label + search shortcut -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:paddingTop="18dp"
-            android:paddingBottom="6dp"
-            android:text="Henry Media Player"
-            android:textColor="@color/accent_cyan"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.04" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="10dp">
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/tabs"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@android:color/transparent"
-            app:tabMode="scrollable"
-            app:tabGravity="start"
-            app:tabIndicatorColor="@color/accent_cyan"
-            app:tabSelectedTextColor="@color/accent_cyan"
-            app:tabTextColor="@color/text_secondary" />
+            <ImageView
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@drawable/bg_header_avatar"
+                android:padding="6dp"
+                android:src="@mipmap/ic_launcher"
+                android:scaleType="centerCrop"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/header_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:gravity="center"
+                android:text="NOW PLAYING"
+                android:textColor="@color/accent_cyan"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.12" />
+
+            <ImageButton
+                android:id="@+id/btn_header_search"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@android:color/transparent"
+                android:src="@android:drawable/ic_menu_search"
+                app:tint="@color/text_secondary"
+                android:contentDescription="Search library" />
+        </LinearLayout>
 
         <androidx.viewpager2.widget.ViewPager2
             android:id="@+id/view_pager"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1" />
+
+        <!-- Bottom icon navigation, chrome/brushed-metal styled -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabs"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:background="@drawable/bg_bottom_nav"
+            app:tabMode="fixed"
+            app:tabGravity="fill"
+            app:tabIndicatorColor="@color/accent_cyan"
+            app:tabIndicatorGravity="top"
+            app:tabSelectedTextColor="@color/accent_cyan"
+            app:tabTextColor="@color/text_secondary"
+            app:tabIconTint="@color/text_secondary"
+            app:tabRippleColor="@android:color/transparent" />
 
     </LinearLayout>
 
