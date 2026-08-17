@@ -31,6 +31,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
+            android:background="@drawable/bg_glass_bar"
             android:paddingHorizontal="16dp"
             android:paddingTop="14dp"
             android:paddingBottom="10dp">

@@ -162,12 +162,12 @@
                     android:layout_weight="1"
                     android:layout_marginHorizontal="16dp"
                     android:text="PLAY"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/chip_fixed_text"
                     android:textStyle="bold"
                     android:letterSpacing="0.08"
                     android:background="@drawable/bg_play_button"
                     app:icon="@android:drawable/ic_media_play"
-                    app:iconTint="@color/text_primary"
+                    app:iconTint="@color/chip_fixed_text"
                     app:iconGravity="textStart"
                     style="@style/Widget.MaterialComponents.Button" />
 
@@ -297,7 +297,7 @@
                     android:text="ADD TO PLAYLIST"
                     android:textSize="11sp"
                     android:letterSpacing="0.04"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/chip_fixed_text"
                     android:background="@drawable/bg_chip_track"
                     style="@style/Widget.MaterialComponents.Button.TextButton" />
             </LinearLayout>

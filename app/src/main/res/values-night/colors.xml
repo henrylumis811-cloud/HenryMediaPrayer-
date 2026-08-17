@@ -21,4 +21,6 @@
     <color name="accent_purple_dark">#5A2FD9</color>
     <color name="accent_gold">#F2B84B</color>
     <color name="screw_gray">#6E767E</color>
+    <color name="chip_fixed_dark">#DE1A1D21</color>
+    <color name="chip_fixed_text">#F2F6FA</color>
 </resources>

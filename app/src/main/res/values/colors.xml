@@ -14,13 +14,15 @@
     <color name="surface_card">#B3FFFFFF</color>
 
     <!-- Chrome / glass Altar redesign -->
-    <color name="chrome_light">#E7EBEF</color>
-    <color name="chrome_mid">#B8C0C8</color>
-    <color name="chrome_dark">#7A828A</color>
-    <color name="glass_panel">#33141414</color>
-    <color name="glass_border">#55FFFFFF</color>
+    <color name="chrome_light">#F3F5F7</color>
+    <color name="chrome_mid">#C9D0D6</color>
+    <color name="chrome_dark">#8A929A</color>
+    <color name="glass_panel">#D9FAFBFC</color>
+    <color name="glass_border">#4D8A929A</color>
     <color name="accent_purple">#8A5CF5</color>
     <color name="accent_purple_dark">#5A2FD9</color>
     <color name="accent_gold">#F2B84B</color>
-    <color name="screw_gray">#9AA2AA</color>
+    <color name="screw_gray">#AEB6BD</color>
+    <color name="chip_fixed_dark">#DE1A1D21</color>
+    <color name="chip_fixed_text">#F2F6FA</color>
 </resources>
