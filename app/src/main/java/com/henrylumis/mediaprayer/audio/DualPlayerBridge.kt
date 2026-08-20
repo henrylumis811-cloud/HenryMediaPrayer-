@@ -340,6 +340,7 @@ class DualPlayerBridge(
                     .add(Player.COMMAND_PREPARE)
                     .add(Player.COMMAND_STOP)
                     .add(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+                    .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                     .add(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
                     .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
                     .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)

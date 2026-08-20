@@ -81,10 +81,28 @@
                         android:layout_height="240dp"
                         android:layout_marginTop="18dp">
 
+                        <!-- Decorative gold/purple rings, like a halo around the art,
+                             matching the reference's spectrum-ring look. -->
+                        <ImageView
+                            android:layout_width="230dp"
+                            android:layout_height="230dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ring_purple_thin"
+                            android:alpha="0.85"
+                            android:contentDescription="@null" />
+
+                        <ImageView
+                            android:layout_width="208dp"
+                            android:layout_height="208dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ring_gold_thin"
+                            android:alpha="0.9"
+                            android:contentDescription="@null" />
+
                         <com.google.android.material.imageview.ShapeableImageView
                             android:id="@+id/album_art"
-                            android:layout_width="190dp"
-                            android:layout_height="190dp"
+                            android:layout_width="170dp"
+                            android:layout_height="170dp"
                             android:layout_gravity="center"
                             android:scaleType="centerCrop"
                             android:background="@drawable/bg_card"
@@ -162,12 +180,12 @@
                     android:layout_weight="1"
                     android:layout_marginHorizontal="16dp"
                     android:text="PLAY"
-                    android:textColor="@color/chip_fixed_text"
+                    android:textColor="@color/text_primary"
                     android:textStyle="bold"
                     android:letterSpacing="0.08"
                     android:background="@drawable/bg_play_button"
                     app:icon="@android:drawable/ic_media_play"
-                    app:iconTint="@color/chip_fixed_text"
+                    app:iconTint="@color/text_primary"
                     app:iconGravity="textStart"
                     style="@style/Widget.MaterialComponents.Button" />
 
@@ -297,7 +315,7 @@
                     android:text="ADD TO PLAYLIST"
                     android:textSize="11sp"
                     android:letterSpacing="0.04"
-                    android:textColor="@color/chip_fixed_text"
+                    android:textColor="@color/text_primary"
                     android:background="@drawable/bg_chip_track"
                     style="@style/Widget.MaterialComponents.Button.TextButton" />
             </LinearLayout>

@@ -10,7 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
@@ -19,6 +18,7 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.google.common.util.concurrent.MoreExecutors
 import com.henrylumis.mediaprayer.data.MusicScanner
 import com.henrylumis.mediaprayer.data.Song
+import com.henrylumis.mediaprayer.data.toMediaItem
 import com.henrylumis.mediaprayer.databinding.ActivityMainBinding
 import com.henrylumis.mediaprayer.ui.PagerAdapter
 import com.henrylumis.mediaprayer.util.Prefs
@@ -172,24 +172,7 @@ class MainActivity : AppCompatActivity() {
 
     fun playQueue(songs: List<Song>, startIndex: Int) {
         val controller = mediaController ?: return
-        val items = songs.map { song ->
-            val extras = android.os.Bundle().apply {
-                song.dataPath?.let { putString("data_path", it) }
-                putLong("duration_ms", song.durationMs)
-            }
-            MediaItem.Builder()
-                .setUri(song.uriString)
-                .setMediaId(song.id.toString())
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(song.title)
-                        .setArtist(song.artist)
-                        .setAlbumTitle(song.album)
-                        .setExtras(extras)
-                        .build()
-                )
-                .build()
-        }
+        val items = songs.map { it.toMediaItem() }
         controller.setMediaItems(items, startIndex, 0L)
         controller.prepare()
         controller.play()

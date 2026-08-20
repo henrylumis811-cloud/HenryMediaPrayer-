@@ -16,12 +16,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.henrylumis.mediaprayer.MainActivity
 import com.henrylumis.mediaprayer.data.MusicScanner
 import com.henrylumis.mediaprayer.data.Song
+import com.henrylumis.mediaprayer.data.SongSorter
 import com.henrylumis.mediaprayer.databinding.FragmentLibraryBinding
 import com.henrylumis.mediaprayer.trim.TrimmerDialog
 import com.henrylumis.mediaprayer.util.PlaylistStore
 import com.henrylumis.mediaprayer.util.Prefs
-import com.henrylumis.mediaprayer.util.RecentlyPlayedStore
-import com.henrylumis.mediaprayer.util.ListeningStatsStore
 import kotlinx.coroutines.launch
 
 @androidx.media3.common.util.UnstableApi
@@ -33,22 +32,11 @@ class LibraryFragment : Fragment() {
 
     private var allSongs: List<Song> = emptyList()
     private var searchQuery: String = ""
-    private var sortMode: SortMode = SortMode.TITLE_ASC
+    private var sortMode: SongSorter.SortMode = SongSorter.SortMode.TITLE_ASC
     private var favoritesOnly: Boolean = false
     private val handler = Handler(Looper.getMainLooper())
     private var nowPlayingRunnable: Runnable? = null
     private var searchDebounceRunnable: Runnable? = null
-
-    private enum class SortMode(val label: String) {
-        TITLE_ASC("Title (A-Z)"),
-        TITLE_DESC("Title (Z-A)"),
-        ARTIST("Artist"),
-        DURATION("Duration"),
-        DATE_ADDED("Date Added (Newest)"),
-        RECENTLY_PLAYED("Recently Played"),
-        TOP_PLAYED("Top Played"),
-        GENRE("Genre")
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -60,9 +48,7 @@ class LibraryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        sortMode = Prefs.getSortMode(requireContext())
-            ?.let { saved -> SortMode.values().find { it.name == saved } }
-            ?: SortMode.TITLE_ASC
+        sortMode = SongSorter.modeFromSavedName(Prefs.getSortMode(requireContext()))
 
         adapter = SongAdapter(
             onClick = { song, _ ->
@@ -121,11 +107,11 @@ class LibraryFragment : Fragment() {
 
     private fun showSortMenu() {
         val popup = PopupMenu(requireContext(), binding.btnSort)
-        SortMode.values().forEachIndexed { index, mode ->
+        SongSorter.SortMode.values().forEachIndexed { index, mode ->
             popup.menu.add(Menu.NONE, index, index, mode.label)
         }
         popup.setOnMenuItemClickListener { item ->
-            sortMode = SortMode.values()[item.itemId]
+            sortMode = SongSorter.SortMode.values()[item.itemId]
             Prefs.setSortMode(requireContext(), sortMode.name)
             applyFilterAndSort()
             true
@@ -160,29 +146,7 @@ class LibraryFragment : Fragment() {
                 it.title.contains(q, ignoreCase = true) || it.artist.contains(q, ignoreCase = true)
             }
         }
-        result = when (sortMode) {
-            SortMode.TITLE_ASC -> result.sortedBy { it.title.lowercase() }
-            SortMode.TITLE_DESC -> result.sortedByDescending { it.title.lowercase() }
-            SortMode.ARTIST -> result.sortedBy { it.artist.lowercase() }
-            SortMode.DURATION -> result.sortedBy { it.durationMs }
-            SortMode.DATE_ADDED -> result.sortedByDescending { it.dateAdded }
-            SortMode.RECENTLY_PLAYED -> {
-                val order = RecentlyPlayedStore.getRecentIds(requireContext())
-                result.sortedBy { song ->
-                    val pos = order.indexOf(song.id.toString())
-                    if (pos == -1) Int.MAX_VALUE else pos
-                }
-            }
-            SortMode.TOP_PLAYED -> result.sortedByDescending {
-                ListeningStatsStore.getPlayCount(requireContext(), it.id.toString())
-            }
-            SortMode.GENRE -> result.sortedWith(
-                compareBy(
-                    { ListeningStatsStore.getGenre(requireContext(), it.id.toString()) ?: "\uFFFF" }, // unknown genres sort last
-                    { it.title.lowercase() }
-                )
-            )
-        }
+        result = SongSorter.sort(requireContext(), result, sortMode)
         adapter.submitList(result)
         binding.emptyState.visibility = if (result.isEmpty()) View.VISIBLE else View.GONE
     }

@@ -64,7 +64,6 @@
         android:layout_marginTop="18dp"
         android:text="PREVIEW CLIP"
         android:textStyle="bold"
-        android:textColor="@color/chip_fixed_text"
         android:background="@drawable/bg_chip_track" />
 
     <com.google.android.material.button.MaterialButton

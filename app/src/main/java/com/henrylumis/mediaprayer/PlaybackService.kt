@@ -12,6 +12,9 @@ import com.henrylumis.mediaprayer.audio.DualPlayerBridge
 import com.henrylumis.mediaprayer.audio.EqualizerController
 import com.henrylumis.mediaprayer.audio.LoudnessNormalizer
 import com.henrylumis.mediaprayer.audio.ReplayGainReader
+import com.henrylumis.mediaprayer.data.MusicScanner
+import com.henrylumis.mediaprayer.data.SongSorter
+import com.henrylumis.mediaprayer.data.toMediaItem
 import com.henrylumis.mediaprayer.util.ListeningStatsStore
 import com.henrylumis.mediaprayer.util.PlaybackStateStore
 import com.henrylumis.mediaprayer.util.Prefs
@@ -196,11 +199,37 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    /** Rebuilds the last-played track (paused, at its saved position) so the
-     *  Altar screen and playback are ready to continue the instant the app
-     *  reopens, even after a full process restart. */
+    /** Rebuilds the FULL library (in the same sort order shown in the Library
+     *  tab), positioned at the last-played track and its saved position, so
+     *  pressing Play resumes not just that one song but continues naturally
+     *  through the rest of your library from there -- exactly like the
+     *  session never ended. Falls back to just the single saved track if the
+     *  library scan fails for any reason, rather than leaving nothing loaded. */
     private fun restoreLastSessionIfFresh() {
         val saved = PlaybackStateStore.load(applicationContext) ?: return
+
+        serviceScope.launch {
+            try {
+                val allSongs = MusicScanner.scan(applicationContext)
+                val sortMode = SongSorter.modeFromSavedName(Prefs.getSortMode(applicationContext))
+                val sorted = SongSorter.sort(applicationContext, allSongs, sortMode)
+                if (sorted.isEmpty()) {
+                    restoreSingleTrackFallback(saved)
+                    return@launch
+                }
+                val items = sorted.map { it.toMediaItem() }
+                val targetIndex = sorted.indexOfFirst { it.id.toString() == saved.mediaId }
+                    .let { if (it == -1) 0 else it }
+                withContext(Dispatchers.Main) {
+                    bridge.restoreQueueAtPosition(items, targetIndex, saved.positionMs)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { restoreSingleTrackFallback(saved) }
+            }
+        }
+    }
+
+    private fun restoreSingleTrackFallback(saved: com.henrylumis.mediaprayer.util.SavedPlayback) {
         try {
             val extras = android.os.Bundle().apply {
                 saved.dataPath?.let { putString("data_path", it) }
