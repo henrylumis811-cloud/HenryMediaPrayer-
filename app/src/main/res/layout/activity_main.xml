@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Base legendary-tech HUD backdrop, always present -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_legendary" />
+
+    <!-- Default cinematic supercar backdrop. A user-selected image can replace
+         it from Signal, while the same opacity control remains available. -->
+    <ImageView
+        android:id="@+id/bg_photo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_supercar_default"
+        android:alpha="0.62"
+        android:contentDescription="@null" />
+
+    <!-- Cinematic scrim/vignette: keeps the photo rich without sacrificing
+         readability of the player controls and glass UI. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_photo_scrim"
+        android:clickable="false"
+        android:focusable="false" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Header: avatar + screen label + search shortcut -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="8dp">
+
+            <ImageView
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@drawable/bg_header_avatar"
+                android:padding="6dp"
+                android:src="@mipmap/ic_launcher"
+                android:scaleType="centerCrop"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/header_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:gravity="center"
+                android:text="NOW PLAYING"
+                android:textColor="@color/accent_cyan"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.12" />
+
+            <ImageButton
+                android:id="@+id/btn_header_search"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_nav_search"
+                app:tint="@color/text_secondary"
+                android:contentDescription="Search library" />
+        </LinearLayout>
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Bottom icon navigation, chrome/brushed-metal styled -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabs"
+            android:layout_width="match_parent"
+            android:layout_height="68dp"
+            android:background="@drawable/bg_bottom_nav"
+            app:tabMode="fixed"
+            app:tabGravity="fill"
+            app:tabIndicatorColor="@color/accent_cyan"
+            app:tabIndicatorGravity="top"
+            app:tabSelectedTextColor="@color/accent_cyan"
+            app:tabTextColor="@color/text_secondary"
+            app:tabIconTint="@color/text_secondary"
+            app:tabRippleColor="@android:color/transparent"
+            app:tabIndicatorHeight="2dp" />
+
+    </LinearLayout>
+
+</FrameLayout>

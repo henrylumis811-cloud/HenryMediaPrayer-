@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+app/build/
+
+# NOTE: debug.keystore is intentionally NOT ignored -- it's committed on
+# purpose so every CI build signs with the same stable debug key, letting
+# APK updates install over the existing app instead of requiring uninstall.
+.github/

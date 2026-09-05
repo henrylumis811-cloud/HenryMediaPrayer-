@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MediaPrayer" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent_cyan</item>
+        <item name="colorPrimaryDark">@color/bg_base</item>
+        <item name="colorAccent">@color/accent_violet</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@color/bg_base</item>
+        <item name="android:navigationBarColor">@color/bg_base</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.MediaPrayer.Dialog</item>
+        <item name="android:alertDialogTheme">@style/ThemeOverlay.MediaPrayer.Dialog</item>
+    </style>
+
+    <!-- Consistent transient UI: dark glass HUD with the app's car motif. -->
+    <style name="ThemeOverlay.MediaPrayer.Dialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_dialog_glass</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="colorSurface">@android:color/transparent</item>
+        <item name="android:backgroundDimAmount">0.62</item>
+        <item name="colorAccent">@color/accent_cyan</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
+
+    <style name="CircleImageStyle">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+</resources>

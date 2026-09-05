@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Legendary tech palette - light / chrome-glass HUD mode -->
+    <color name="bg_base">#EDF2F7</color>
+    <color name="bg_elevated">#FFFFFF</color>
+    <color name="accent_cyan">#0091B3</color>
+    <color name="accent_violet">#5B3DE0</color>
+    <color name="accent_pink">#D6006E</color>
+    <!-- Light mode: translucent "glass" surfaces instead of flat white,
+         so cards let the HUD backdrop show through softly. -->
+    <color name="text_primary">#101720</color>
+    <color name="text_secondary">#48566A</color>
+    <color name="divider">#66FFFFFF</color>
+    <color name="surface_card">#B3FFFFFF</color>
+    <color name="nav_surface_top">#D9FFFFFF</color>
+    <color name="nav_surface_mid">#C7E7EBF0</color>
+    <color name="nav_surface_bottom">#B5B8C0C8</color>
+
+    <!-- Chrome / glass Altar redesign -->
+    <color name="chrome_light">#E7EBEF</color>
+    <color name="chrome_mid">#B8C0C8</color>
+    <color name="chrome_dark">#7A828A</color>
+    <color name="glass_panel">#33141414</color>
+    <color name="glass_border">#55FFFFFF</color>
+    <color name="accent_purple">#8A5CF5</color>
+    <color name="accent_purple_dark">#5A2FD9</color>
+    <color name="accent_gold">#F2B84B</color>
+    <color name="screw_gray">#9AA2AA</color>
+</resources>
