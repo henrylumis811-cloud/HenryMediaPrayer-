@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="16dp" android:height="16dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+
+    <!-- Bolt head: radial gradient gives it a rounded, metallic 3D look
+         instead of a flat filled circle. -->
+    <path android:pathData="M12,2A10,10 0,1 0,12.1 2Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="9"
+                android:centerY="8"
+                android:gradientRadius="13"
+                android:startColor="#FFFFFFFF"
+                android:centerColor="@color/screw_gray"
+                android:endColor="#7A828A" />
+        </aapt:attr>
+    </path>
+
+    <!-- Subtle dark rim for edge definition -->
+    <path
+        android:pathData="M12,2A10,10 0,1 0,12.1 2Z"
+        android:strokeColor="#33000000"
+        android:strokeWidth="0.6"
+        android:fillColor="#00000000" />
+
+    <!-- Cross slot -->
+    <path android:strokeColor="#4A5058" android:strokeWidth="1.7" android:pathData="M5.5,12 L18.5,12" />
+    <path android:strokeColor="#4A5058" android:strokeWidth="1.7" android:pathData="M12,5.5 L12,18.5" />
+
+    <!-- Specular highlight -->
+    <path android:fillColor="#B3FFFFFF" android:pathData="M8,6A1.6,1.2 0,1 0,8.1 6Z" />
+</vector>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_base">
+
+    <ImageView
+        android:id="@+id/splashBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/bg_supercar_default"
+        android:scaleType="centerCrop"
+        android:alpha="0.58"
+        android:contentDescription="@null" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_photo_scrim"
+        android:clickable="false"
+        android:focusable="false" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingHorizontal="28dp">
+
+        <FrameLayout
+            android:id="@+id/splash_emblem"
+            android:layout_width="132dp"
+            android:layout_height="132dp"
+            android:background="@drawable/ring_cyan"
+            android:padding="18dp"
+            android:alpha="0">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_header_avatar"
+                android:padding="18dp"
+                android:src="@mipmap/ic_launcher"
+                android:scaleType="centerInside"
+                android:contentDescription="@null" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/splash_rv_h"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="RVH MUSIC"
+            android:textColor="@color/accent_cyan"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.18"
+            android:alpha="0" />
+
+        <View
+            android:layout_width="86dp"
+            android:layout_height="2dp"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_accent_pill"
+            android:alpha="0" />
+
+        <TextView
+            android:id="@+id/splash_dedication"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="IN DEDICATION TO HELLEN"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.12"
+            android:alpha="0" />
+
+        <TextView
+            android:id="@+id/splash_app_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="HENRY MEDIA PLAYER"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:letterSpacing="0.22"
+            android:alpha="0" />
+
+        <TextView
+            android:id="@+id/splash_loading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="34dp"
+            android:text="INITIALIZING YOUR SOUND"
+            android:textColor="@color/text_secondary"
+            android:textSize="9sp"
+            android:letterSpacing="0.18"
+            android:alpha="0" />
+    </LinearLayout>
+</FrameLayout>
